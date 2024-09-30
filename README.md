@@ -1,1 +1,1 @@
-# free_energy-_barriers
+# free_energy_barriers

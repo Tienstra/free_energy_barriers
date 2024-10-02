@@ -1,6 +1,10 @@
 import jax
 import jax.numpy as jnp
 from jax import random, grad
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Plots.plotter import TracePlot
 
 class MALA:
     def __init__(self, X, y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=1000, key=None):
@@ -100,23 +104,27 @@ class MALA:
         
         return jnp.array(theta_chain)
 
-# Example usage
 
-# Create some synthetic data for a Bayesian linear regression model
-key = random.PRNGKey(42)
-n_samples, n_features = 100, 5
-X = random.normal(key, (n_samples, n_features))
-beta_true = random.normal(key, (n_features,))
-y = jnp.dot(X, beta_true) + random.normal(key, (n_samples,))
+if __name__ == "__main__":
 
-# Initialize the MALA sampler
-mala_sampler = MALA(X=X, y=y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, key=key)
+    # Create some synthetic data for a Bayesian linear regression model
+    key = random.PRNGKey(42)
+    n_samples, n_features = 100, 5
+    X = random.normal(key, (n_samples, n_features))
+    theta_true = random.normal(key, (n_features,))
+    y = jnp.dot(X, theta_true) + random.normal(key, (n_samples,))
 
-# Run MALA with an initial guess for theta
-theta_init = jnp.zeros(n_features)
-theta_chain = mala_sampler.sample(theta_init)
+    # Initialize the MALA sampler
+    mala_sampler = MALA(X=X, y=y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, key=key)
 
-# Display posterior estimates
-theta_mean = jnp.mean(theta_chain, axis=0)
-print("Posterior mean for theta:", theta_mean)
-print("True beta values:", beta_true)
+    # Run MALA with an initial guess for theta
+    theta_init = jnp.zeros(n_features)
+    theta_chain = mala_sampler.sample(theta_init)
+
+    # Display posterior estimates
+    theta_mean = jnp.mean(theta_chain, axis=0)
+    print("Posterior mean for theta:", theta_mean)
+    print("True theta values:", theta_true)
+    # Generate trace plots
+    plotter = TracePlot(theta_chain)
+    plotter.plot_traces()

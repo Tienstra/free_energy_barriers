@@ -5,9 +5,10 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Plots.plotter import TracePlot
+from Models.regression import DummyModel
 
 class MALA:
-    def __init__(self, X, y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=1000, key=None):
+    def __init__(self, regression_model, y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=1000, key=None):
         """
         Initializes the MALA sampler for Bayesian linear regression.
         
@@ -20,20 +21,20 @@ class MALA:
         n_steps (int): Number of MCMC steps
         key (jax.random.PRNGKey): Random key for reproducibility
         """
-        self.X = X
+        self.regression_model = regression_model
         self.y = y
         self.sigma_noise = sigma_noise
         self.sigma_prior = sigma_prior
         self.epsilon = epsilon
         self.n_steps = n_steps
-        self.n_samples, self.n_features = X.shape
         self.key = random.PRNGKey(42) if key is None else key
 
     def log_likelihood(self, theta):
         """
         Log-likelihood for Gaussian likelihood.
         """
-        residuals = self.y - jnp.dot(self.X, theta)
+        y_pred = self.regression_model.evaluate(theta)
+        residuals = self.y - y_pred
         return -0.5 * jnp.sum(residuals**2) / self.sigma_noise**2
 
     def log_prior(self, theta):
@@ -109,16 +110,16 @@ if __name__ == "__main__":
 
     # Create some synthetic data for a Bayesian linear regression model
     key = random.PRNGKey(42)
-    n_samples, n_features = 100, 5
-    X = random.normal(key, (n_samples, n_features))
-    theta_true = random.normal(key, (n_features,))
-    y = jnp.dot(X, theta_true) + random.normal(key, (n_samples,))
+    x = jnp.linspace(0, 10, 100)  # Input data
+    reg_model = DummyModel(x) 
+    theta_true = jnp.zeros(100)
+    y_observed = random.normal(key, shape=(100,)) * 0.5  # Add noise to the data
 
     # Initialize the MALA sampler
-    mala_sampler = MALA(X=X, y=y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, key=key)
+    mala_sampler = MALA(reg_model, y=y_observed, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, key=key)
 
     # Run MALA with an initial guess for theta
-    theta_init = jnp.zeros(n_features)
+    theta_init = jnp.zeros(100)
     theta_chain = mala_sampler.sample(theta_init)
 
     # Display posterior estimates

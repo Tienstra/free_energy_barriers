@@ -1,36 +1,78 @@
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 import numpy as np
+
 class TracePlot:
-    def __init__(self, theta_chain):
-        self.theta_chain = theta_chain
-        self.n_steps, self.n_features = theta_chain.shape
+    def __init__(self, theta_chains):
+        self.theta_chains = theta_chains
+        self.n_chains, self.n_steps, self.n_features = theta_chains.shape
+        print(self.theta_chains[0, :, 0])
 
     def plot_traces(self):
-        fig, axes = plt.subplots(self.n_features, 2, figsize=(12, 2 * self.n_features))
+        fig, axes = plt.subplots(self.n_features, 2, figsize=(12, 2 * self.n_features), sharex=False)
 
-        # If there's only one feature, make sure to handle the axes as a 2D array
+        # If there's only one feature, we treat axes as a 2D array
         if self.n_features == 1:
-            axes = np.expand_dims(axes, axis=0)
+            axes = [axes]
 
+        # Loop over each feature (parameter)
         for i in range(self.n_features):
-            # Plot the trace (sample values over iterations)
-            axes[i, 0].plot(self.theta_chain[:, i])
+            # Plot the trace plot for each chain (all chains in one subplot, different colors)
+            for chain_idx in range(self.n_chains):
+                axes[i, 0].plot(self.theta_chains[chain_idx, :, i], label=f"Chain {chain_idx + 1}")
+
             axes[i, 0].set_title(f"Trace plot for theta[{i}]")
             axes[i, 0].set_ylabel(f"theta[{i}]")
             axes[i, 0].set_xlabel("Iteration")
-            
-            # Perform KDE using scipy's gaussian_kde
-            density = gaussian_kde(self.theta_chain[:, i])
-            x_vals = np.linspace(np.min(self.theta_chain[:, i]), np.max(self.theta_chain[:, i]), 1000)
-            y_vals = density(x_vals)
+            axes[i, 0].legend()
 
-            # Plot the KDE
-            axes[i, 1].plot(x_vals, y_vals, linestyle="--")
-            axes[i, 1].set_title(f"Density plot for theta[{i}]")
+            # Plot the KDE for each chain (all chains in one subplot, different colors)
+            for chain_idx in range(self.n_chains):
+
+                # Perform KDE using scipy's gaussian_kde
+                density = gaussian_kde(self.theta_chains[chain_idx, :, i])
+                x_vals = np.linspace(np.min(self.theta_chains[chain_idx, :, i]), np.max(self.theta_chains[chain_idx, :, i]), 1000)
+                y_vals = density(x_vals)
+                
+                # Plot the KDE for the chain
+                axes[i, 1].plot(x_vals, y_vals, linestyle="--", label=f"Chain {chain_idx + 1}")
+
+            axes[i, 1].set_title(f"KDE for theta[{i}]")
             axes[i, 1].set_ylabel("Density")
             axes[i, 1].set_xlabel(f"theta[{i}]")
+            axes[i, 1].legend()
+        plt.tight_layout()
+        plt.savefig("TracePlots.png")
+     
+
+class NormPlot:
+    def __init__(self, theta_chains):
+        """
+        Initializes the NormPlotter class with the sampled chains.
         
-        
+        Parameters:
+        - theta_chain (array): Array of sampled theta values (n_steps x n_features)
+        """
+        self.theta_chains = theta_chains
+        self.n_chains, self.n_steps, self.n_features = theta_chains.shape
+
+    def plot_norm(self):
+        # Plot norms for each chain
+        for chain_idx in range(self.n_chains):
+            norms = np.linalg.norm(self.theta_chains[chain_idx], axis=1)  # Norm for each iteration in the chain
+            plt.plot(norms, lw=1, label=f"Chain {chain_idx + 1}")
+
+        plt.title("Norm of the parameter vector at each iteration (across chains)")
+        plt.xlabel("Iteration")
+        plt.ylabel("Norm of theta")
+        plt.legend()
+        plt.grid(True)
         plt.tight_layout()
         plt.show()
+        plt.savefig("NormPlot.png")
+
+if __name__ == '__main__': 
+    theta_chains = np.random.randn(3, 100, 2)
+    # Create an instance and plot
+    trace_plotter = TracePlot(theta_chains)
+    trace_plotter.plot_traces()

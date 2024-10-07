@@ -4,30 +4,45 @@ from jax import random, grad
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from Plots.plotter import TracePlot
+from Plots.plotter import TracePlot, NormPlot
 from Models.regression import DummyModel
 
 class MALA:
-    def __init__(self, regression_model, y, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=1000, key=None):
-        """
-        Initializes the MALA sampler for Bayesian linear regression.
-        
-        Parameters:
-        X (array): Design matrix (n_samples x n_features)
-        y (array): Response variable (n_samples)
-        sigma_noise (float): Noise standard deviation
-        sigma_prior (float): Prior standard deviation
-        epsilon (float): Step size for MALA updates
-        n_steps (int): Number of MCMC steps
-        key (jax.random.PRNGKey): Random key for reproducibility
-        """
+    def __init__(self, regression_model, y, N=100, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=1000, n_chains=2,key=None):
         self.regression_model = regression_model
         self.y = y
+        self.N = N
         self.sigma_noise = sigma_noise
         self.sigma_prior = sigma_prior
         self.epsilon = epsilon
         self.n_steps = n_steps
+        self.n_chains = n_chains 
+        self.theta_init = self.initialize_chains()
         self.key = random.PRNGKey(42) if key is None else key
+        self.acceptance_ratio = 0
+        self.rhat = 0
+
+    def initialize_chains(self, scale=10, key=random.PRNGKey(42)):
+        # Split the random key into n_chains subkeys
+        keys = random.split(key, self.n_chains)
+
+        # Initialize an empty list to store the initial points for each chain
+        theta_init_list = []
+
+        # Loop over each key to generate the random starting points
+        for i in range(self.n_chains):
+            # Generate a random direction for the i-th chain
+            theta_random = random.normal(keys[i], shape=(self.N,))
+            theta_random = theta_random / jnp.linalg.norm(theta_random)  # Normalize
+            theta_init = theta_random * scale  # Scale to start far from the unit ball
+
+            # Append the initial point to the list
+            theta_init_list.append(theta_init)
+
+        # Convert the list of initial points to a JAX array
+        theta_init = jnp.stack(theta_init_list)
+
+        return theta_init
 
     def log_likelihood(self, theta):
         """
@@ -79,31 +94,32 @@ class MALA:
 
         return theta_new, accept
 
-    def sample(self, theta_init):
-        """
-        Run MALA for a specified number of iterations.
-        
-        Parameters:
-        theta_init (array): Initial value of theta (parameters)
-        
-        Returns:
-        theta_chain (array): Chain of sampled theta values
-        """
-        theta_chain = []
-        theta_current = theta_init
-        accept_count = 0
+    def sample(self):
+        # Prepare to store all chains
+        theta_chains = []
+        acceptance_rates = []  
 
-        # Iterate for a specified number of steps
-        for i in range(self.n_steps):
-            self.key, subkey = random.split(self.key)
-            theta_current, accepted = self.mala_step(subkey, theta_current)
-            theta_chain.append(theta_current)
-            accept_count += accepted
+        for chain_idx in range(self.n_chains):
+            # Initialize for this chain with a unique key
+            chain_key = random.split(self.key, self.n_chains)[chain_idx]
+            theta_current = self.theta_init[chain_idx]  # Use different starting points for each chain
+            theta_chain = []
+            accept_count = 0
 
-        acceptance_rate = accept_count / self.n_steps
-        print(f"Acceptance rate: {acceptance_rate:.4f}")
+            for i in range(self.n_steps):
+                chain_key, subkey = random.split(chain_key)
+                theta_current, accepted = self.mala_step(subkey, theta_current)
+                theta_chain.append(theta_current)
+                accept_count += accepted
+            acceptance_rate = accept_count / self.n_steps
+            acceptance_rates.append(acceptance_rate)
         
-        return jnp.array(theta_chain)
+
+            # Convert chain list to a JAX array and append to the overall chains list
+            theta_chains.append(jnp.array(theta_chain))
+        self.acceptance_ratio = jnp.mean(jnp.array(accepted))
+        # Convert the chains into a single JAX array
+        return jnp.array(theta_chains)
 
 
 if __name__ == "__main__":
@@ -119,13 +135,23 @@ if __name__ == "__main__":
     mala_sampler = MALA(reg_model, y=y_observed, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, key=key)
 
     # Run MALA with an initial guess for theta
-    theta_init = jnp.zeros(100)
-    theta_chain = mala_sampler.sample(theta_init)
+    # Generate a random direction and ensure it is far from the unit ball
+    #theta_random = random.normal(key, shape=(100,))
+    #theta_random = theta_random / jnp.linalg.norm(theta_random)
+    #theta_init = theta_random * 10  # Start 10 times farther from the unit ball
+    #theta_init = jnp.zeros(100)
+    theta_chain = mala_sampler.sample()
+    print('Acceptance ratio:', mala_sampler.acceptance_ratio)
 
     # Display posterior estimates
-    theta_mean = jnp.mean(theta_chain, axis=0)
+    theta_mean = jnp.mean(theta_chain, axis=(0,1))
     print("Posterior mean for theta:", theta_mean)
     print("True theta values:", theta_true)
     # Generate trace plots
     plotter = TracePlot(theta_chain)
     plotter.plot_traces()
+    # Create an instance of the NormPlotter with the sampled chains
+    norm_plotter = NormPlot(theta_chain)
+
+    # Plot the norm of the parameter vector at each iteration
+    norm_plotter.plot_norm()

@@ -5,7 +5,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Plots.plotter import TracePlot, NormPlot
-from Models.regression import DummyModel
+from Models.regression import DummyModel, StepRegression
 
 class MALA:
     def __init__(self, regression_model, y, N=100, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=1000, n_chains=2,key=None):
@@ -32,9 +32,10 @@ class MALA:
         # Loop over each key to generate the random starting points
         for i in range(self.n_chains):
             # Generate a random direction for the i-th chain
-            theta_random = random.normal(keys[i], shape=(self.N,))
-            theta_random = theta_random / jnp.linalg.norm(theta_random)  # Normalize
-            theta_init = theta_random * scale  # Scale to start far from the unit ball
+            # Mean vector of zeros
+            mean = jnp.zeros(self.N)
+            covariance = (jnp.sqrt(self.N)) * jnp.eye(self.N)
+            theta_init = random.multivariate_normal(keys[i], mean, covariance)
 
             # Append the initial point to the list
             theta_init_list.append(theta_init)
@@ -126,20 +127,13 @@ if __name__ == "__main__":
 
     # Create some synthetic data for a Bayesian linear regression model
     key = random.PRNGKey(42)
-    x = jnp.linspace(0, 10, 100)  # Input data
-    reg_model = DummyModel(x) 
+    x = random.uniform(key, shape=(100,), minval=0.0, maxval=1.0)  # Input data
+    reg_model = StepRegression(100) 
     theta_true = jnp.zeros(100)
     y_observed = random.normal(key, shape=(100,)) * 0.5  # Add noise to the data
 
     # Initialize the MALA sampler
-    mala_sampler = MALA(reg_model, y=y_observed, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, key=key)
-
-    # Run MALA with an initial guess for theta
-    # Generate a random direction and ensure it is far from the unit ball
-    #theta_random = random.normal(key, shape=(100,))
-    #theta_random = theta_random / jnp.linalg.norm(theta_random)
-    #theta_init = theta_random * 10  # Start 10 times farther from the unit ball
-    #theta_init = jnp.zeros(100)
+    mala_sampler = MALA(reg_model, y=y_observed, sigma_noise=1.0, sigma_prior=1.0, epsilon=0.05, n_steps=5000, n_chains=1,key=key)
     theta_chain = mala_sampler.sample()
     print('Acceptance ratio:', mala_sampler.acceptance_ratio)
 

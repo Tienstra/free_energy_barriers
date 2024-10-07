@@ -6,7 +6,6 @@ class TracePlot:
     def __init__(self, theta_chains):
         self.theta_chains = theta_chains
         self.n_chains, self.n_steps, self.n_features = theta_chains.shape
-        print(self.theta_chains[0, :, 0])
 
     def plot_traces(self):
         fig, axes = plt.subplots(self.n_features, 2, figsize=(12, 2 * self.n_features), sharex=False)
@@ -43,6 +42,7 @@ class TracePlot:
             axes[i, 1].legend()
         plt.tight_layout()
         plt.savefig("TracePlots.png")
+        plt.show()
      
 
 class NormPlot:
@@ -68,11 +68,13 @@ class NormPlot:
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.show()
         plt.savefig("NormPlot.png")
+        plt.show()
 
 if __name__ == '__main__': 
     theta_chains = np.random.randn(3, 100, 2)
     # Create an instance and plot
     trace_plotter = TracePlot(theta_chains)
     trace_plotter.plot_traces()
+    norm_plotter = NormPlot(theta_chains)
+    norm_plotter.plot_norm()

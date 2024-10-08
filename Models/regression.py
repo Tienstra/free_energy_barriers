@@ -29,7 +29,7 @@ class DummyModel(Regression):
         return 0*self.x
 
 class StepRegression(Regression):
-    def __init__(self,N, args=[5, 15, 2, 1]):
+    def __init__(self,N, args=[0.5, 15, 2, 1]):
         super().__init__()
 
         self.t = args[0]

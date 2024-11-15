@@ -8,7 +8,7 @@ from Plots.plotter import TracePlot, NormPlot
 from Models.regression import DummyModel, StepRegression
 
 class MALA:
-    def __init__(self, regression_model, y, N=100, sigma_noise=1.0, epsilon=0.05, n_steps=1000, n_chains=2,key=None):
+    def __init__(self, regression_model, y, N=100, sigma_noise=1.0, epsilon=0.0001, n_steps=1000, n_chains=2,key=None):
         self.regression_model = regression_model
         self.y = y
         self.N = N
@@ -33,11 +33,11 @@ class MALA:
         for i in range(self.n_chains):
             # Generate a random direction for the i-th chain
             # Mean vector of zeros
-            #mean = jnp.zeros(self.N)
-            #covariance = (jnp.sqrt(self.N)) * jnp.eye(self.N)
-            #$theta_init = random.multivariate_normal(keys[i], mean, covariance) 
+            # mean = jnp.zeros(self.N)
+            # covariance = jnp.eye(self.N)
+            # theta_init = random.multivariate_normal(keys[i], mean, covariance) 
             # Append the initial point to the list
-            theta_init = jnp.ones(self.N)
+            theta_init = 10*jnp.ones(self.N)
             theta_init_list.append(theta_init)
 
         # Convert the list of initial points to a JAX array
@@ -85,8 +85,8 @@ class MALA:
         - log_q: The log of the proposal density q(x' | x).
         """
         grad_log_pi_x = grad(self.log_posterior)(x)
-        delta = x_prime - x - self.epsilon * grad_log_pi_x
-        return -jnp.sum(delta ** 2) / (4 * self.epsilon)
+        delta = x_prime - x - 0.5*(self.epsilon**2) * grad_log_pi_x
+        return -jnp.sum(delta ** 2) / (2 * self.epsilon**2)
 
     def mala_step(self, rng_key, theta_current):
         """
@@ -112,7 +112,7 @@ class MALA:
 
 
         # Compute acceptance ratio (simplified for symmetric proposal)
-        log_accept_ratio = log_post_proposed - log_post_current
+        #log_accept_ratio = log_post_proposed - log_post_current
 
         # Accept or reject the proposal
         accept = jnp.log(random.uniform(rng_key)) < log_accept_ratio
@@ -143,8 +143,10 @@ class MALA:
 
             # Convert chain list to a JAX array and append to the overall chains list
             theta_chains.append(jnp.array(theta_chain))
-        self.acceptance_ratio = jnp.mean(jnp.array(accepted))
+        self.acceptance_ratio = jnp.mean(acceptance_rate)
         # Convert the chains into a single JAX array
+        #print(jnp.array(theta_chains).shape)
+        #chains x itterations x dim theta
         return jnp.array(theta_chains)
 
 
@@ -159,19 +161,21 @@ if __name__ == "__main__":
     y_observed = random.normal(key, shape=(N,)) * 0.5  # Add noise to the data
 
     # Initialize the MALA sampler
-    mala_sampler = MALA(reg_model, y=y_observed, N=N, sigma_noise=1.0, epsilon=0.05, n_steps=5000, n_chains=2,key=key)
-    theta_chain = mala_sampler.sample()
+    mala_sampler = MALA(reg_model, y=y_observed, N=N, sigma_noise=1.0, epsilon=0.05, n_steps=10000, n_chains=2,key=key)
+    theta_chains = mala_sampler.sample()
     print('Acceptance ratio:', mala_sampler.acceptance_ratio)
 
     # Display posterior estimates
-    theta_mean = jnp.mean(theta_chain, axis=(0,1))
+    theta_mean = jnp.mean(theta_chains[:,-2000:,:], axis=(1,0))
     print("Posterior mean for theta:", theta_mean)
+    theta_std = jnp.std(theta_chains[:,-2000:,:], axis=(1,0))
+    print(f"{theta_std = }")
     print("True theta values:", theta_true)
     # Generate trace plots
-    plotter = TracePlot(theta_chain)
+    plotter = TracePlot(theta_chains)
     plotter.plot_traces()
     # Create an instance of the NormPlotter with the sampled chains
-    norm_plotter = NormPlot(theta_chain)
+    norm_plotter = NormPlot(theta_chains)
 
     # Plot the norm of the parameter vector at each iteration
     norm_plotter.plot_norm()

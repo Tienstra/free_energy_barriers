@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod 
 import jax.numpy as jnp
-from jax import random
+from jax import random,grad
 import numpy as np 
 import sys
 import os
@@ -23,10 +23,10 @@ class Regression(ABC):
 class DummyModel(Regression):
     def __init__(self, x):
         super().__init__()
-        self.x = x
+        self.x = 0
 
     def evaluate(self, theta):
-        return 0*self.x
+        return 1
 
 class StepRegression(Regression):
     def __init__(self,N, args=[0.5, 15, 2, 1]):
@@ -38,8 +38,6 @@ class StepRegression(Regression):
         self.rho = args[3]
         self.N = N 
     
-
-
     def w(self,r):
         t = self.t
         L = self.L
@@ -65,13 +63,21 @@ class StepRegression(Regression):
         
     
     def evaluate(self,theta):
-            w_theta = self.w(jnp.linalg.norm(theta))  # Call the w function with the norm of theta
-            # Initialize the random key
-            key = random.PRNGKey(42)
-            # Generate N samples uniformly from the interval [0, 1]
-            X = random.uniform(key, shape=(self.N,))
-            
-            return jnp.sqrt(w_theta)*X 
+        w_theta = self.w(jnp.linalg.norm(theta))  # Call the w function with the norm of theta
+        # Initialize the random key
+        key = random.PRNGKey(42)
+        # Generate N samples uniformly from the interval [0, 1]
+        X = random.uniform(key, shape=(self.N,))
+        
+        return jnp.sqrt(w_theta)*X 
+    
+    def plot_w(self, eval_points=np.linspace(0,100,100)):
+        w_r = np.vectorize(self.w)(eval_points,axis = 0)
+        plt.plot(eval_points,w_r)
+        plt.show()
+
+
+
 
          
 
@@ -79,14 +85,16 @@ class StepRegression(Regression):
 
 if __name__ == "__main__":
     # Create synthetic observed data with noise
-    key = random.PRNGKey(42)
-    N=100
-    true_theta = np.linspace(0,10,N) # True parameters
-    y_observed = random.normal(key, shape=(N,)) # Adding noise
-    forward_model = StepRegression(N)
-    y = forward_model.evaluate(true_theta)
-    plt.plot(y)
-    plt.show()
+    #key = random.PRNGKey(42)
+    # N=100
+    #true_theta = np.linspace(0,10,N) # True parameters
+    #y_observed = random.normal(key, shape=(N,)) # Adding noise
+    forward_model = StepRegression(100).plot_w()
+    #y = forward_model.evaluate(true_theta)
+    #plt.plot(y)
+    #plt.show()
+   
+
     
 
  

@@ -20,7 +20,7 @@ class TracePlot:
         for i in range(self.n_features):
             # Plot the trace plot for each chain (all chains in one subplot, different colors)
             for chain_idx in range(self.n_chains):
-                axes[i, 0].plot(self.theta_chains[chain_idx, :, i], label=f"Chain {chain_idx + 1}")
+                axes[i, 0].plot(self.theta_chains[chain_idx, -2000:, i], label=f"Chain {chain_idx + 1}")
 
             axes[i, 0].set_title(f"Trace plot for theta[{i}]")
             axes[i, 0].set_ylabel(f"theta[{i}]")
@@ -28,32 +28,19 @@ class TracePlot:
             axes[i, 0].legend(loc='upper right')
 
             # Plot the KDE for each chain (all chains in one subplot, different colors)
-            # for chain_idx in range(self.n_chains):
-
-            #     #PCA
-            #     pca = PCA(10)
-            #     transformed_data = pca.fit_transform(self.theta_chains[chain_idx, :, i])
-            #     # Step 2: Fit KDE using Scikit-learn
-            #     kde = KernelDensity(kernel='gaussian', bandwidth=0.5)  
-            #     kde.fit(transformed_data)
-
-            #     # Step 3: Evaluate the KDE
-            #     x_vals = np.linspace(np.min(pca_data), np.max(pca_data), 1000).reshape(-1, 1)  # Reshape to match sklearn's requirements
-            #     log_density = kde.score_samples(x_vals)  # This returns log(density), so we need to exponentiate it
-            #     density = np.exp(log_density)
-
-            #     # Perform KDE using scipy's gaussian_kde
-            #     # density = gaussian_kde(self.theta_chains[chain_idx, :, i])
-            #     # x_vals = np.linspace(np.min(self.theta_chains[chain_idx, :, i]), np.max(self.theta_chains[chain_idx, :, i]), 1000)
-            #     # y_vals = density(x_vals)
+            for chain_idx in range(self.n_chains):
+                # Perform KDE using scipy's gaussian_kde
+                density = gaussian_kde(self.theta_chains[chain_idx, -2000:, i])
+                x_vals = np.linspace(np.min(self.theta_chains[chain_idx, :, i]), np.max(self.theta_chains[chain_idx, :, i]), 1000)
+                y_vals = density(x_vals)
                 
-            #     # Plot the KDE for the chain
-            #     axes[i, 1].plot(x_vals, density, linestyle="--", label=f"Chain {chain_idx + 1}")
+                # Plot the KDE for the chain
+                axes[i, 1].plot(x_vals, y_vals, linestyle="--", label=f"Chain {chain_idx + 1}")
 
-            # axes[i, 1].set_title(f"KDE for theta[{i}]")
-            # axes[i, 1].set_ylabel("Density")
-            # axes[i, 1].set_xlabel(f"theta[{i}]")
-            # axes[i, 1].legend()
+            axes[i, 1].set_title(f"KDE for theta[{i}]")
+            axes[i, 1].set_ylabel("Density")
+            axes[i, 1].set_xlabel(f"theta[{i}]")
+            axes[i, 1].legend()
         plt.tight_layout()
         plt.savefig("TracePlots.png")
         plt.show()
@@ -73,7 +60,7 @@ class NormPlot:
     def plot_norm(self):
         # Plot norms for each chain
         for chain_idx in range(self.n_chains):
-            norms = np.linalg.norm(self.theta_chains[chain_idx], axis=1)  # Norm for each iteration in the chain
+            norms = np.linalg.norm(self.theta_chains[chain_idx][-2000:],axis=1)  # Norm for each iteration in the chain
             plt.plot(norms, lw=1, label=f"Chain {chain_idx + 1}")
 
         plt.title("Norm of the parameter vector at each iteration (across chains)")
@@ -85,6 +72,7 @@ class NormPlot:
         plt.savefig("NormPlot.png")
         plt.show()
         print(norms)
+        print(np.mean(norms))
 
 if __name__ == '__main__': 
     theta_chains = np.random.randn(3, 100, 2)

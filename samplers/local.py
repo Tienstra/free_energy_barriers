@@ -4,8 +4,8 @@ from jax import random, grad
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from Plots.plotter import TracePlot, NormPlot
-from Models.regression import DummyModel, StepRegression
+from plots.plotter import TracePlot, NormPlot
+from models.regression import DummyModel, StepRegression
 
 class MALA:
     def __init__(self, regression_model, y, N=100, sigma_noise=1.0, epsilon=0.0001, n_steps=1000, n_chains=2,key=None):

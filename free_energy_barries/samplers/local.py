@@ -1,4 +1,3 @@
-
 import jax.numpy as jnp
 from jax import random, grad
 import sys
@@ -7,6 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from plots.plotter import TracePlot, NormPlot
 from models.regression import DummyModel, StepRegression
+from utils.tools import sample_annuli, deterministic_sample, sample_prior
 
 
 class MALA:
@@ -19,7 +19,8 @@ class MALA:
         epsilon=0.0001,
         n_steps=1000,
         n_chains=2,
-        key=None,
+        initializer=None,
+        *args,
     ):
         self.regression_model = regression_model
         self.y = y
@@ -29,33 +30,24 @@ class MALA:
         self.epsilon = epsilon
         self.n_steps = n_steps
         self.n_chains = n_chains
+        self.initializer = initializer
+        self.init_ags = None
         self.theta_init = self.initialize_chains()
         self.key = random.PRNGKey(42) if key is None else key
         self.acceptance_ratio = 0
         self.rhat = 0
 
-    def initialize_chains(self, scale=10, key=random.PRNGKey(42)):
-        # Split the random key into n_chains subkeys
-        keys = random.split(key, self.n_chains)
-
-        # Initialize an empty list to store the initial points for each chain
-        theta_init_list = []
-
-        # Loop over each key to generate the random starting points
-        for i in range(self.n_chains):
-            # Generate a random direction for the i-th chain
-            # Mean vector of zeros
-            # mean = jnp.zeros(self.N)
-            # covariance = jnp.eye(self.N)
-            # theta_init = random.multivariate_normal(keys[i], mean, covariance)
-            # Append the initial point to the list
-            theta_init = 10 * jnp.ones(self.N)
-            theta_init_list.append(theta_init)
-
-        # Convert the list of initial points to a JAX array
-        theta_init = jnp.stack(theta_init_list)
-
-        return theta_init
+    def initialize_chains(self, *args, **kwargs):
+        if self.initializer is not None:
+            if self.init_ags is None:
+                return self.initializer()
+            else:
+                return self.initializer(self.init_ags)
+        else:
+            # Default initialization (e.g., multivariate normal)
+            return random.multivariate_normal(
+                self.key, jnp.zeros(self.N), jnp.eye(self.N), shape=(self.n_chains,)
+            )
 
     def log_likelihood(self, theta):
         """
@@ -201,8 +193,8 @@ if __name__ == "__main__":
     print(f"{theta_std = }")
     print("True theta values:", theta_true)
     # Generate trace plots
-    #plotter = TracePlot(theta_chains)
-    #plotter.plot_traces()
+    # plotter = TracePlot(theta_chains)
+    # plotter.plot_traces()
     # Create an instance of the NormPlotter with the sampled chains
     norm_plotter = NormPlot(theta_chains)
 

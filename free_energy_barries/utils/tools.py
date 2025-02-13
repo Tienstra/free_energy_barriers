@@ -4,6 +4,7 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 import sys
 import os
+from jax import random
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -29,14 +30,19 @@ def sample_annuli(D, n_samples, args):
               """
         )
     else:
-        r_low = args[0]
-        r_high = args[1]
+        r_low = args[0]  # Lower bound for radial coordinate
+        r_high = args[1]  # Upper bound for radial coordinate
+
+    # Set random seed for reproducibility
+    key = random.PRNGKey(42)
 
     # Generate samples
-    r, phis = sample_spherical_coords(D, n_samples, r_low, r_high)
+    r, phis = sample_spherical_coords(key, D, n_samples, r_low, r_high)
 
     # Convert to Cartesian coordinates
     samples = spherical_to_cartesian(r, phis)
+
+   
 
     return samples
 
@@ -66,20 +72,22 @@ def sample_stdnorm_prior(D, n_samples, args):
 
 
 def generate_bounds(start=0, stop=1, length=0.33):
-    arr= np.arange(start,stop,length,dtype=np.float16)
-    pairs = [[arr[i], arr[i+1]]for i in range(len(arr) - 1)]
+    arr = np.arange(start, stop, length, dtype=np.float16)
+    pairs = [[arr[i], arr[i + 1]] for i in range(len(arr) - 1)]
     return pairs
 
 
 # Example usage
 if __name__ == "__main__":
     # Set random seed for reproducibility
-    samples = sample_annuli()
+    samples = sample_annuli(D=3, n_samples = 1000, args = [0.9,  1])
+     # Convert JAX arrays to NumPy for plotting
+    samples_np = jnp.asarray(samples).copy()
     print(np.linalg.norm(samples, axis=1))
     # Plot
     fig = plt.figure(figsize=(8, 8))
     ax1 = fig.add_subplot(211, projection="3d")
-    ax1.scatter(samples[:, 0], samples[:, 1], samples[:, 2], alpha=0.1)
+    ax1.scatter(samples_np[:, 0], samples_np[:, 1], samples_np[:, 2], alpha=0.1)
     ax2 = fig.add_subplot(212)
     ax2.hist(np.linalg.norm(samples, axis=1), bins=100)
     ax2.set_xlabel("norm")

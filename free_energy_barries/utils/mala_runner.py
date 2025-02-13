@@ -23,11 +23,11 @@ def run_mala_experiments():
 
     # Set up base configuration
     base_config = ExperimentConfig(
-        D=5,
+        D=100,
         sigma_noise=1.0,
         epsilon=0.005,
-        n_steps=10,
-        n_chains=2,
+        n_steps=1000,
+        n_chains=20,
         model_type="StepRegression",
         init_method="sample_annuli",
         args=[],
@@ -42,7 +42,7 @@ def run_mala_experiments():
     y_observed = random.normal(key, shape=(base_config.D,)) * 0.5
 
     # Run experiments with different epsilon values
-    r_bounds = generate_bounds(start=0, stop=1, length=0.33)
+    r_bounds = generate_bounds(start=0, stop=1, length=(1/9))
     print(r_bounds)
 
     for r_lowerupper in r_bounds:

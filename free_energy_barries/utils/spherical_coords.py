@@ -1,15 +1,38 @@
-import numpy as np
+from typing import Tuple, Sequence
+import jax
+import jax.numpy as jnp
+from jax import random
 import matplotlib.pyplot as plt
-from typing import Tuple, List
+
+
+@jax.jit
+def _sample_spherical_coords_inner(
+    key: random.PRNGKey,
+    keys: random.PRNGKey,
+    n_samples: int,
+    r_low: float,
+    r_high: float,
+    is_last_angle: jnp.ndarray,
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """Inner function for sampling a single angle"""
+    r = random.uniform(key, shape=(n_samples,), minval=r_low, maxval=r_high)
+    max_val = jnp.where(is_last_angle, 2.0 * jnp.pi, jnp.pi)
+    phi = random.uniform(keys, shape=(n_samples,), minval=0.0, maxval=max_val)
+    return r, phi
 
 
 def sample_spherical_coords(
-    n_dim: int, n_samples: int, r_low: float = 0.0, r_high: float = 1.0
-) -> Tuple[np.ndarray, List[np.ndarray]]:
+    key: random.PRNGKey,
+    n_dim: int,
+    n_samples: int,
+    r_low: float = 0.0,
+    r_high: float = 1.0,
+) -> Tuple[jnp.ndarray, Sequence[jnp.ndarray]]:
     """
-    Generate uniform samples in n-dimensional spherical coordinates.
+    Generate uniform samples in n-dimensional spherical coordinates using JAX.
 
     Args:
+        key: JAX random number generator key
         n_dim: Number of dimensions
         n_samples: Number of samples to generate
         r_low: Lower bound for radial coordinate
@@ -18,66 +41,70 @@ def sample_spherical_coords(
     Returns:
         Tuple containing:
         - Array of radial coordinates
-        - List of arrays containing angular coordinates
+        - Sequence of arrays containing angular coordinates
     """
+    # Split the key for different random operations
+    keys = random.split(key, n_dim)
+
     # Sample radial coordinate uniformly
-    r = np.random.uniform(r_low, r_high, n_samples)
+    r = random.uniform(keys[0], shape=(n_samples,), minval=r_low, maxval=r_high)
 
     # Initialize list to store angular coordinates
     phis = []
 
     # Generate n-1 angular coordinates
     for i in range(n_dim - 1):
-        if i == n_dim - 2:
-            # Last angle φ_(n-1) ranges from [0, 2π)
-            phi = np.random.uniform(0, 2 * np.pi, n_samples)
-        else:
-            # Other angles φ_i range from [0, π]
-            phi = np.random.uniform(0, np.pi, n_samples)
+        is_last = i == n_dim - 2
+        max_val = 2.0 * jnp.pi if is_last else jnp.pi
+        phi = random.uniform(
+            keys[i + 1], shape=(n_samples,), minval=0.0, maxval=max_val
+        )
         phis.append(phi)
 
     return r, phis
 
 
-def spherical_to_cartesian(r: np.ndarray, phis: List[np.ndarray]) -> np.ndarray:
+@jax.jit
+def spherical_to_cartesian(r: jnp.ndarray, phis: Sequence[jnp.ndarray]) -> jnp.ndarray:
     """
-    Convert spherical coordinates to Cartesian coordinates.
+    Convert spherical coordinates to Cartesian coordinates using JAX.
 
     Args:
-        r: Array of radial coordinates
-        phis: List of arrays containing angular coordinates
+        r: Array of radial coordinates with shape (n_samples,)
+        phis: Sequence of arrays containing angular coordinates,
+              each with shape (n_samples,)
 
     Returns:
         Array of shape (n_samples, n_dim) containing Cartesian coordinates
     """
-    n_samples = len(r)
+    n_samples = r.shape[0]
     n_dim = len(phis) + 1
 
-    # Initialize output array
-    x = np.zeros((n_samples, n_dim))
-
-    # First coordinate
-    x[:, 0] = r * np.cos(phis[0])
+    # First coordinate (x)
+    first_coord = r * jnp.cos(phis[0])
 
     # Middle coordinates
+    middle_coords = []
     for i in range(1, n_dim - 1):
-        x[:, i] = r
+        coord = r.copy()
         for j in range(i):
-            x[:, i] *= np.sin(phis[j])
-        x[:, i] *= np.cos(phis[i])
+            coord *= jnp.sin(phis[j])
+        coord *= jnp.cos(phis[i])
+        middle_coords.append(coord)
 
     # Last coordinate
-    x[:, -1] = r
+    last_coord = r.copy()
     for i in range(n_dim - 1):
-        x[:, -1] *= np.sin(phis[i])
+        last_coord *= jnp.sin(phis[i])
 
-    return x
+    # Combine all coordinates
+    coords = [first_coord] + middle_coords + [last_coord]
+    return jnp.stack(coords, axis=1)
 
 
-# Example usage
 if __name__ == "__main__":
     # Set random seed for reproducibility
-    np.random.seed(42)
+    key = random.PRNGKey(42)
 
     # Parameters
     n_dim = 3  # Number of dimensions
@@ -86,13 +113,31 @@ if __name__ == "__main__":
     r_high = 1.0  # Upper bound for radial coordinate
 
     # Generate samples
-    r, phis = sample_spherical_coords(n_dim, n_samples, r_low, r_high)
+    r, phis = sample_spherical_coords(key, n_dim, n_samples, r_low, r_high)
 
     # Convert to Cartesian coordinates
     x = spherical_to_cartesian(r, phis)
 
-    # Plot
+    # Convert JAX arrays to NumPy for plotting
+    x_np = jnp.asarray(x).copy()
+
+    # Create the 3D plot
     fig = plt.figure(figsize=(8, 8))
-    ax = fig.add_subplot(projection="3d")
-    ax.scatter(x[:, 0], x[:, 1], x[:, 2], alpha=0.1)
+    ax = fig.add_subplot(111, projection="3d")
+
+    # Create scatter plot
+    scatter = ax.scatter(
+        x_np[:, 0], x_np[:, 1], x_np[:, 2], alpha=0.1, c="blue", marker="."
+    )
+
+    # Set labels and title
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title("Spherical Coordinates Sampling")
+
+    # Set equal aspect ratio
+    ax.set_box_aspect([1, 1, 1])
+
+    # Show the plot
     plt.show()

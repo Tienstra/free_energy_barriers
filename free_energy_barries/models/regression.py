@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 import jax.numpy as jnp
-from jax import random, grad
+from jax import random, grad, jit
 import numpy as np
+from functools import partial
 import sys
 import os
 
@@ -36,59 +37,50 @@ class DummyModel(Regression):
 class StepRegression(Regression):
     def __init__(self, N, args=[0.5, 15, 2, 1]):
         super().__init__()
-
         self.t = args[0]
         self.L = args[1]
         self.T = args[2]
         self.rho = args[3]
         self.N = N
 
+    @partial(jit, static_argnums=(0,))
     def w(self, r):
         t = self.t
         L = self.L
         T = self.T
         rho = self.rho
 
-        # Case 1: r <= t / 2
-        if r <= t / 2:
-            return 4 * (T * r) ** 2
+        # Replace if/else with JAX's where
+        w_case1 = 4 * (T * r) ** 2
+        w_case2 = (T * t) ** 2 + T * (r - (t / 2))
+        w_case3 = (T * t) ** 2 + (T * (t / 2)) + rho * (r - t)
+        w_case4 = (T * t) ** 2 + (T * (t / 2)) + rho * (L - t)
 
-        # Case 2: t / 2 <= r < t
-        elif r >= t / 2 and r < t:
-            return (T * t) ** 2 + T * (r - (t / 2))
+        # Use where to select appropriate cases
+        result = jnp.where(
+            r <= t / 2,
+            w_case1,
+            jnp.where(r < t, w_case2, jnp.where(r < L, w_case3, w_case4)),
+        )
 
-        # Case 3: t < r < L
-        elif r >= t and r < L:
-            return (T * t) ** 2 + (T * (t / 2)) + rho * (r - t)
+        return result
 
-        # Case 4: r >= L
-        else:
-            return (T * t) ** 2 + (T * (t / 2)) + rho * (L - t)
-
+    @partial(jit, static_argnums=(0,))
     def evaluate(self, theta):
-        w_theta = self.w(
-            jnp.linalg.norm(theta)
-        )  # Call the w function with the norm of theta
-        # Initialize the random key
         key = random.PRNGKey(42)
-        # Generate N samples uniformly from the interval [0, 1]
+        r = jnp.linalg.norm(theta)
+        w_theta = self.w(r)
         X = random.uniform(key, shape=(self.N,))
-
         return jnp.sqrt(w_theta) * X
 
-    def plot_w(self, eval_points=np.linspace(0, 100, 100)):
-        w_r = np.vectorize(self.w)(eval_points, axis=0)
-        plt.plot(eval_points, w_r)
-        plt.show()
 
-
-#if __name__ == "__main__":
-    # Create synthetic observed data with noise
-    # key = random.PRNGKey(42)
-    # N=100
-    # true_theta = np.linspace(0,10,N) # True parameters
-    # y_observed = random.normal(key, shape=(N,)) # Adding noise
-    #forward_model = StepRegression(100).plot_w()
-    # y = forward_model.evaluate(true_theta)
-    # plt.plot(y)
-    # plt.show()
+# if __name__ == "__main__":
+# Create synthetic observed data with noise
+# key = random.PRNGKey(42)
+# N=100
+# true_theta = np.linspace(0,10,N) # True parameters
+# y_observed = random.normal(key, shape=(N,)) # Adding noise
+# forward_model = StepRegression(100).plot_w()
+# y = forward_model.evaluate(true_theta)
+# plt.plot(y)
+# plt.show()

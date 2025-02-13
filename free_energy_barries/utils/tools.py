@@ -10,18 +10,30 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.spherical_coords import sample_spherical_coords, spherical_to_cartesian
 
 
-def sample_annuli(n_dim=3, n_samples=5000, r_low=0.66, r_high=1):
+def sample_annuli(D, n_samples, args):
     """
     Samples from the annuli with specified radius
 
-    Parameters:
+    args tuple:
         - n_dims : dimension of samples
         - n_samples : number of samples to be drawn
         - r_low : lower bound for radius (inner radius)
         - r_high: upper bound for radius (outer radius)
     """
+    if args == []:
+        print(
+            """
+            You must pass in args. The format of the list is:
+                - r_low : lower bound for radius (inner radius)
+                - r_high: upper bound for radius (outer radius)
+              """
+        )
+    else:
+        r_low = args[0]
+        r_high = args[1]
+
     # Generate samples
-    r, phis = sample_spherical_coords(n_dim, n_samples, r_low, r_high)
+    r, phis = sample_spherical_coords(D, n_samples, r_low, r_high)
 
     # Convert to Cartesian coordinates
     samples = spherical_to_cartesian(r, phis)
@@ -29,14 +41,28 @@ def sample_annuli(n_dim=3, n_samples=5000, r_low=0.66, r_high=1):
     return samples
 
 
-def deterministic_sample(N, scale=10):
-    return scale * jnp.ones(N)
+def sample_stdnorm_prior(D, n_samples, args):
+    """
+    Samples from the standard norm of dim D
 
+    args tuple:
+        - D : dimension of samples
+        - n_samples : number of samples to be drawn
+        - args : key for reproducibility
+    """
+    if args == []:
+        print(
+            """
+            You must pass in args. The format of the list is:
+                - key 
+              """
+        )
+    else:
+        key = args[0]
+    mean = jnp.zeros(D)
+    covariance = jnp.eye(D)
 
-def sample_prior(key, mean, covariance, n_samples):
     return random.multivariate_normal(key, mean, covariance, shape=(n_samples,))
-
-    return jnp.stack([theta_init for _ in range(self.n_chains)])
 
 
 # Example usage

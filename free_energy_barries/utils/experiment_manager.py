@@ -54,7 +54,7 @@ class ExperimentConfig:
     
     # Initialization parameters
     init_method: str
-    init_params: dict
+    args: list
     
     # Storage parameters
     dtype: str = 'float16'  # Options: 'float16', 'float32', 'float64'
@@ -69,6 +69,22 @@ class ExperimentConfig:
             self.experiment_id = str(uuid.uuid4())[:8]
         if self.timestamp is None:
             self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    def to_dict(self):
+        """Convert to dictionary with proper string representation of complex types."""
+        d = asdict(self)
+        d['args'] = repr(self.args)  # Convert list to string representation
+        return d
+
+    @classmethod
+    def from_dict(cls, d):
+        """Create instance from dictionary, properly handling complex types."""
+        # Make a copy to avoid modifying the input
+        d = d.copy()
+        # Convert string representation of args back to list
+        if isinstance(d['args'], str):
+            d['args'] = eval(d['args'])
+        return cls(**d)
 
 class ExperimentManager:
     def __init__(self, project_root=None):
@@ -108,13 +124,22 @@ class ExperimentManager:
     def save_config(self, config, exp_dir):
         """Save experiment configuration to YAML file."""
         config_path = exp_dir / "config.yaml"
+        
+        # Create a copy of the config dictionary
+        config_dict = asdict(config)
+        
+        # Convert args list to string representation
+        config_dict['args'] = repr(config_dict['args'])
+        
+        # Save to YAML
         with open(config_path, "w") as f:
-            yaml.dump(asdict(config), f)
+            yaml.dump(config_dict, f)
             
         # Also save a brief README for this specific experiment
         exp_readme = exp_dir / "README.md"
         with open(exp_readme, "w") as f:
             f.write(f"""# Experiment {config.experiment_id}
+
 
 ## Description
 {config.description}
@@ -180,7 +205,8 @@ Detailed configuration can be found in `config.yaml`
             
         # Load configuration
         with open(exp_dir / "config.yaml", "r") as f:
-            config = yaml.safe_load(f)
+            config_dict = yaml.safe_load(f)
+            config = ExperimentConfig.from_dict(config_dict)
             
         # Load results
         results = np.load(exp_dir / "results.npz")

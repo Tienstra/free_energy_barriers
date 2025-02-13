@@ -17,6 +17,7 @@ import jax.numpy as jnp
 
 
 def run_mala_experiments():
+   
     # Initialize experiment manager
     manager = ExperimentManager(project_root=".")
 
@@ -28,18 +29,21 @@ def run_mala_experiments():
         n_steps=10,
         n_chains=2,
         model_type="StepRegression",
-        init_method=None,
+        init_method="sample_annuli",
         args=[],
         dtype="float16",
         description="MALA experiment with different init sampling from different annuli",
     )
+
+
 
     # Create synthetic data (same for all experiments)
     key = random.PRNGKey(42)
     y_observed = random.normal(key, shape=(base_config.D,)) * 0.5
 
     # Run experiments with different epsilon values
-    r_bounds = generate_bounds(0, 1, 9)
+    r_bounds = generate_bounds(start=0, stop=1, length=0.33)
+    print(r_bounds)
 
     for r_lowerupper in r_bounds:
         # Update config for this experiment
@@ -47,7 +51,7 @@ def run_mala_experiments():
             **{
                 **base_config.__dict__,
                 "args": r_lowerupper,
-                "description": f"MALA experiment with epsilon={r_lowerupper}",
+                "description": f"MALA experiment with radi upper and lower bounds={r_lowerupper}",
             }
         )
 
@@ -61,7 +65,7 @@ def run_mala_experiments():
             epsilon=config.epsilon,
             n_steps=config.n_steps,
             n_chains=config.n_chains,
-            initializer=sample_annuli,
+            initializer=config.init_method,
             args=config.args,
         )
 

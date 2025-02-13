@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from plots.plotter import TracePlot, NormPlot
 from models.regression import DummyModel, StepRegression
-from utils.tools import sample_annuli, deterministic_sample, sample_prior
+from utils.tools import sample_annuli, sample_stdnorm_prior
 
 
 class MALA:
@@ -14,35 +14,35 @@ class MALA:
         self,
         regression_model,
         y,
-        N=100,
+        D=100,
         sigma_noise=1.0,
         epsilon=0.0001,
         n_steps=1000,
         n_chains=2,
         initializer=None,
-        *args,
+        args=[],
     ):
         self.regression_model = regression_model
         self.y = y
-        self.N = N
+        self.D = D
         self.sigma_noise = sigma_noise
-        self.sigma_prior = 1 / jnp.sqrt(self.N)
+        self.sigma_prior = 1 / jnp.sqrt(self.D)
         self.epsilon = epsilon
         self.n_steps = n_steps
         self.n_chains = n_chains
         self.initializer = initializer
-        self.init_ags = None
+        self.init_ags = args
         self.theta_init = self.initialize_chains()
         self.key = random.PRNGKey(42) if key is None else key
         self.acceptance_ratio = 0
         self.rhat = 0
 
-    def initialize_chains(self, *args, **kwargs):
+    def initialize_chains(self):
         if self.initializer is not None:
             if self.init_ags is None:
                 return self.initializer()
             else:
-                return self.initializer(self.init_ags)
+                return self.initializer(self.D, self.n_chains, self.init_ags)
         else:
             # Default initialization (e.g., multivariate normal)
             return random.multivariate_normal(
@@ -166,22 +166,23 @@ if __name__ == "__main__":
 
     # Create some synthetic data for a Bayesian linear regression model
     key = random.PRNGKey(42)
-    N = 100
-    x = random.uniform(key, shape=(N,), minval=0.0, maxval=1.0)  # Input data
-    reg_model = StepRegression(N)
-    theta_true = jnp.zeros(N)
-    y_observed = random.normal(key, shape=(N,)) * 0.5  # Add noise to the data
+    D = 10
+    x = random.uniform(key, shape=(D,), minval=0.0, maxval=1.0)  # Input data
+    reg_model = StepRegression(D)
+    theta_true = jnp.zeros(D)
+    y_observed = random.normal(key, shape=(D,)) * 0.5  # Add noise to the data
 
     # Initialize the MALA sampler
     mala_sampler = MALA(
         reg_model,
         y=y_observed,
-        N=N,
+        D=D,
         sigma_noise=1.0,
         epsilon=0.005,
-        n_steps=50000,
+        n_steps=5,
         n_chains=2,
-        key=key,
+        initializer=sample_annuli,
+        args=[0,1],
     )
     theta_chains = mala_sampler.sample()
     print("Acceptance ratio:", mala_sampler.acceptance_ratio)
@@ -196,7 +197,7 @@ if __name__ == "__main__":
     # plotter = TracePlot(theta_chains)
     # plotter.plot_traces()
     # Create an instance of the NormPlotter with the sampled chains
-    norm_plotter = NormPlot(theta_chains)
+    # norm_plotter = NormPlot(theta_chains)
 
     # Plot the norm of the parameter vector at each iteration
-    norm_plotter.plot_norm()
+    # norm_plotter.plot_norm()

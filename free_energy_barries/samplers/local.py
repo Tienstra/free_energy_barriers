@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from plots.plotter import TracePlot, NormPlot
 from models.regression import DummyModel, StepRegression
 from utils.tools import sample_annuli, sample_stdnorm_prior
+from metrics.metrics import mean, sd, norm
 
 
 class MALA:
@@ -31,7 +32,7 @@ class MALA:
         self.n_steps = n_steps
         self.n_chains = n_chains
         self.initializer = initializer
-        self.init_ags = args
+        self.args = args
         self.theta_init = self.initialize_chains()
         self.key = random.PRNGKey(42) if key is None else key
         self.acceptance_ratio = 0
@@ -39,10 +40,14 @@ class MALA:
 
     def initialize_chains(self):
         if self.initializer is not None:
-            if self.init_ags is None:
+            if self.args is None:
                 return self.initializer()
             else:
-                return self.initializer(self.D, self.n_chains, self.init_ags)
+                name = self.initializer.__name__
+                parms_str = str(self.args)
+                print("Intialised with :" + name)
+                print("Parameters :" + parms_str)
+                return self.initializer(self.D, self.n_chains, self.args)
         else:
             # Default initialization (e.g., multivariate normal)
             return random.multivariate_normal(
@@ -166,7 +171,7 @@ if __name__ == "__main__":
 
     # Create some synthetic data for a Bayesian linear regression model
     key = random.PRNGKey(42)
-    D = 10
+    D = 3
     x = random.uniform(key, shape=(D,), minval=0.0, maxval=1.0)  # Input data
     reg_model = StepRegression(D)
     theta_true = jnp.zeros(D)
@@ -182,22 +187,12 @@ if __name__ == "__main__":
         n_steps=5,
         n_chains=2,
         initializer=sample_annuli,
-        args=[0,1],
+        args=[0.66, 1],
     )
     theta_chains = mala_sampler.sample()
     print("Acceptance ratio:", mala_sampler.acceptance_ratio)
-
     # Display posterior estimates
-    theta_mean = jnp.mean(theta_chains[:, -2000:, :], axis=(1, 0))
-    print("Posterior mean for theta:", theta_mean)
-    theta_std = jnp.std(theta_chains[:, -2000:, :], axis=(1, 0))
-    print(f"{theta_std = }")
+    print(f"{mean(theta_chains) = }")
+    print(f"{sd(theta_chains) = }")
+    print(f"{norm(theta_chains) = }")
     print("True theta values:", theta_true)
-    # Generate trace plots
-    # plotter = TracePlot(theta_chains)
-    # plotter.plot_traces()
-    # Create an instance of the NormPlotter with the sampled chains
-    # norm_plotter = NormPlot(theta_chains)
-
-    # Plot the norm of the parameter vector at each iteration
-    # norm_plotter.plot_norm()

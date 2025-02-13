@@ -34,22 +34,18 @@ class MALA:
         self.initializer = initializer
         self.args = args
         self.theta_init = self.initialize_chains()
-        self.key = random.PRNGKey(42) if key is None else key
+        self.key = random.PRNGKey(42) 
         self.acceptance_ratio = 0
         self.rhat = 0
 
     def initialize_chains(self):
-        if self.initializer is not None:
-            if self.args is None:
-                return self.initializer()
-            else:
-                name = self.initializer.__name__
+        if self.initializer == "sample_annuli" and self.args != []:
                 parms_str = str(self.args)
-                print("Intialised with :" + name)
+                print("Intialised with :" + self.initializer)
                 print("Parameters :" + parms_str)
-                return self.initializer(self.D, self.n_chains, self.args)
+                return sample_annuli(self.D, self.n_chains, self.args)
         else:
-            # Default initialization (e.g., multivariate normal)
+            # Default initialization (sample prior)
             return random.multivariate_normal(
                 self.key, jnp.zeros(self.N), jnp.eye(self.N), shape=(self.n_chains,)
             )

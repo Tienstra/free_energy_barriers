@@ -2,17 +2,18 @@ import numpy as np
 import jax.numpy as jnp
 
 
-def norm(chain, axs=1):
+def norm(samples):
     """
     Computes the norm of the chain for each iteration.
 
     Parameters:
-        - chain (array): Array of samples of theta (n_iter x n_dims)
-        - axs (int 0 or 1): Int for the axis to compute the norm
+        - samples (array): Array of samples of theta (n_chains x n_iter x n_dims)
     """
 
-    norms = np.linalg.norm(chain, axis=axs)
+    norms = jnp.linalg.norm(samples, axis=(1,0))
     return norms
+
+
 
 
 def mean(samples, iter=-1):

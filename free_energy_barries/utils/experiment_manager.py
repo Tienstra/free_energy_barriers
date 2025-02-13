@@ -43,14 +43,14 @@ Each experiment is stored in a directory named with the format: `YYYYMMDD_HHMMSS
 @dataclass
 class ExperimentConfig:
     # MALA parameters
-    N: int
+    D: int
     sigma_noise: float
     epsilon: float
     n_steps: int
     n_chains: int
     
     # Model parameters
-    model_type: str  # e.g., "StepRegression", "DummyModel"
+    model_type: str  # e.g., "StepRegression", "DummyModel",
     
     # Initialization parameters
     init_method: str
@@ -124,7 +124,7 @@ class ExperimentManager:
 - Chains: {config.n_chains}
 - Steps: {config.n_steps}
 - Epsilon: {config.epsilon}
-- N: {config.N}
+- D: {config.D}
 
 Detailed configuration can be found in `config.yaml`
 """)
@@ -207,7 +207,7 @@ Detailed configuration can be found in `config.yaml`
                 })
         return experiments
 
-def estimate_storage(n_chains, n_steps, N, dtype='float16'):
+def estimate_storage(n_chains, n_steps, D, dtype='float16'):
     """Estimate storage requirements for an experiment."""
     dtype_sizes = {
         'float16': 2,
@@ -215,7 +215,7 @@ def estimate_storage(n_chains, n_steps, N, dtype='float16'):
         'float64': 8
     }
     bytes_per_value = dtype_sizes[dtype]
-    total_values = n_chains * n_steps * N
+    total_values = n_chains * n_steps * D
     total_bytes = total_values * bytes_per_value
     return {
         'mb': total_bytes / (1024 * 1024),

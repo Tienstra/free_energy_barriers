@@ -65,6 +65,12 @@ def sample_stdnorm_prior(D, n_samples, args):
     return random.multivariate_normal(key, mean, covariance, shape=(n_samples,))
 
 
+def generate_bounds(start=0, stop=1, length=0.33):
+    arr= np.arange(start,stop,length,dtype=np.float16)
+    pairs = [[arr[i], arr[i+1]]for i in range(len(arr) - 1)]
+    return pairs
+
+
 # Example usage
 if __name__ == "__main__":
     # Set random seed for reproducibility

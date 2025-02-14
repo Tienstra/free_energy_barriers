@@ -74,19 +74,19 @@ class NormPlot:
         for chain_idx in range(self.n_chains):
             # norms = np.linalg.norm(self.theta_chains[chain_idx][-2000:],axis=1)  # Norm for each iteration in the chain
             norms = np.linalg.norm(self.theta_chains[chain_idx], axis=1)
-            plt.plot(norms, lw=1, label=f"Chain {chain_idx + 1}")
+            plt.plot(norms, lw=1)
 
-        plt.title("Norm of the parameter vector at each iteration (across chains)")
+        plt.title("Norm of the X_t for each chain)")
         plt.xlabel("Iteration")
-        plt.ylabel("Norm of theta")
+        plt.ylabel("Norm of X_t")
         plt.yscale("log")
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig("NormPlot.png")
+        # plt.savefig("NormPlot.png")
         plt.show()
-        print(norms)
-        print(np.mean(norms))
+        # print(norms)
+        # print(np.mean(norms))
 
 
 if __name__ == "__main__":

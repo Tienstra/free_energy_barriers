@@ -10,10 +10,8 @@ def norm(samples):
         - samples (array): Array of samples of theta (n_chains x n_iter x n_dims)
     """
 
-    norms = jnp.linalg.norm(samples, axis=(1,0))
+    norms = jnp.mean(jnp.linalg.norm(samples, axis=2), axis=0)
     return norms
-
-
 
 
 def mean(samples, iter=-1):

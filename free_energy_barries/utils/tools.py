@@ -42,8 +42,6 @@ def sample_annuli(D, n_samples, args):
     # Convert to Cartesian coordinates
     samples = spherical_to_cartesian(r, phis)
 
-   
-
     return samples
 
 
@@ -80,8 +78,8 @@ def generate_bounds(start=0, stop=1, length=0.33):
 # Example usage
 if __name__ == "__main__":
     # Set random seed for reproducibility
-    samples = sample_annuli(D=3, n_samples = 1000, args = [0.9,  1])
-     # Convert JAX arrays to NumPy for plotting
+    samples = sample_annuli(D=3, n_samples=1000, args=[0.9, 1])
+    # Convert JAX arrays to NumPy for plotting
     samples_np = jnp.asarray(samples).copy()
     print(np.linalg.norm(samples, axis=1))
     # Plot

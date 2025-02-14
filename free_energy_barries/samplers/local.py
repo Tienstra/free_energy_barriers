@@ -41,8 +41,17 @@ class MALA:
 
     def _initialize_chains(self, initializer, args):
         if initializer == "sample_annuli" and args:
+            print("initialized with sample annuli")
             return sample_annuli(self.D, self.n_chains, args)
-        return random.normal(self.key, shape=(self.n_chains, self.D)) * self.sigma_prior
+        elif initializer == "sample_prior":
+            print("initialized with sample std prior")
+            return (
+                random.normal(self.key, shape=(self.n_chains, self.D))
+                * self.sigma_prior
+            )
+        else:
+            print("initialized at 0")
+            return jnp.zeros(shape=(self.n_chains, self.D))
 
     @partial(jit, static_argnums=(0,))
     def log_likelihood(self, theta):
@@ -122,10 +131,9 @@ if __name__ == "__main__":
         D=D,
         sigma_noise=1.0,
         epsilon=0.005,
-        n_steps=5,
+        n_steps=500,
         n_chains=20,
-        initializer="sample_annuli",
-        args=[0.66, 1],
+        # initializer="sample_prior",
     )
 
     theta_chains = mala_sampler.sample()
@@ -133,5 +141,5 @@ if __name__ == "__main__":
     # Display posterior estimates
     print(f"{mean(theta_chains) = }")
     print(f"{sd(theta_chains) = }")
+    print(f"{norm(theta_chains)[0] = }")
     print(f"{norm(theta_chains) = }")
-   

@@ -26,12 +26,12 @@ class Regression(ABC):
 
 
 class DummyModel(Regression):
-    def __init__(self, x):
+    def __init__(self, N):
         super().__init__()
-        self.x = 0
+        self.N = N
 
     def evaluate(self, theta):
-        return 1
+        return jnp.zeros(self.N)
 
 
 class StepRegression(Regression):
@@ -74,13 +74,100 @@ class StepRegression(Regression):
         return jnp.sqrt(w_theta) * X
 
 
-# if __name__ == "__main__":
-# Create synthetic observed data with noise
-# key = random.PRNGKey(42)
-# N=100
-# true_theta = np.linspace(0,10,N) # True parameters
-# y_observed = random.normal(key, shape=(N,)) # Adding noise
-# forward_model = StepRegression(100).plot_w()
-# y = forward_model.evaluate(true_theta)
-# plt.plot(y)
-# plt.show()
+class LogisticRegression(Regression):
+    def __init__(self, N, learning_rate=0.01, max_iter=1000):
+        super().__init__()
+        self.N = N
+        self.learning_rate = learning_rate
+        self.max_iter = max_iter
+        self.theta = None
+
+    @partial(jit, static_argnums=(0,))
+    def sigmoid(self, t):
+        """
+        Compute the sigmoid function: σ(t) = 1 / (1 + e^(-t))
+        """
+        return 1 / (1 + jnp.exp(-t))
+
+    @partial(jit, static_argnums=(0,))
+    def evaluate(self, X):
+        """
+        Compute σ(θᵀx)
+        Args:
+            X: Input features of shape (N, num_features)
+        Returns:
+            Predicted probabilities of shape (N,)
+        """
+        z = jnp.dot(X, self.theta)
+        return self.sigmoid(z)
+
+    @partial(jit, static_argnums=(0,))
+    def cost_function(self, X, y):
+        """
+        Compute the cost function J(θ):
+        J(θ) = -1/m ∑[y⁽ⁱ⁾log(h_θ(x⁽ⁱ⁾)) + (1-y⁽ⁱ⁾)log(1-h_θ(x⁽ⁱ⁾))]
+        """
+        m = X.shape[0]
+        h = self.evaluate(X)
+        return -1 / m * jnp.sum(y * jnp.log(h) + (1 - y) * jnp.log(1 - h))
+
+    @partial(jit, static_argnums=(0,))
+    def gradient(self, X, y):
+        """
+        Compute the gradient of the cost function:
+        ∇J(θ) = 1/m X^T(h_θ(X) - y)
+        """
+        m = X.shape[0]
+        h = self.evaluate(X)
+        return 1 / m * jnp.dot(X.T, (h - y))
+
+    def fit(self, X, y):
+        """
+        Fit the logistic regression model using gradient descent
+        Args:
+            X: Training features of shape (N, num_features)
+            y: Binary target values of shape (N,)
+        """
+        # Initialize parameters
+        key = random.PRNGKey(0)
+        self.theta = random.normal(key, shape=(X.shape[1],))
+
+        # Gradient descent
+        for i in range(self.max_iter):
+            grad_value = self.gradient(X, y)
+            self.theta = self.theta - self.learning_rate * grad_value
+
+            # Optional: add convergence check here
+            if jnp.all(jnp.abs(grad_value) < 1e-5):
+                break
+
+    def predict(self, X, threshold=0.5):
+        """
+        Make binary predictions using the fitted model
+        Args:
+            X: Input features
+            threshold: Classification threshold (default: 0.5)
+        Returns:
+            Binary predictions (0 or 1)
+        """
+        probabilities = self.evaluate(X)
+        return (probabilities >= threshold).astype(int)
+
+
+if __name__ == "__main__":
+    X = np.linspace(-10, 10, 100).reshape(-1, 1)
+    model = LogisticRegression(N=100)
+    model.theta = jnp.array([1.0])  # Set a simple weight for testing
+
+    # Compute predictions
+    predictions = model.evaluate(X)
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(X, predictions, label="Sigmoid Function")
+    plt.title("Logistic Regression Evaluation Function")
+    plt.xlabel("z = θᵀx")
+    plt.ylabel("σ(z)")
+    plt.grid(True)
+    plt.legend()
+    plt.show()

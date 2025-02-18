@@ -9,7 +9,7 @@ from utils.experiment_manager import (
     ExperimentConfig,
 )
 from samplers.local import MALA
-from models.regression import StepRegression
+from models.regression import StepRegression, DummyModel
 from utils.tools import generate_bounds, sample_annuli
 from metrics.metrics import mean, sd, norm
 from jax import random
@@ -26,9 +26,9 @@ def run_mala_experiments():
         D=1000,
         sigma_noise=1.0,
         epsilon=(1 / 1000),
-        n_steps=10000,
-        n_chains=10,
-        model_type="StepRegression",
+        n_steps=1000,
+        n_chains=50,
+        model_type="DummyModel",
         init_method="sample_annuli",
         args=[],
         dtype="float16",
@@ -37,7 +37,7 @@ def run_mala_experiments():
 
     # Create synthetic data (same for all experiments)
     key = random.PRNGKey(42)
-    y_observed = random.normal(key, shape=(base_config.D,)) * 0.5
+    y_observed = jnp.zeros(base_config.D)
 
     # Run experiments with different epsilon values
     r_bounds = generate_bounds(start=0, stop=1, length=(1 / 9))
@@ -56,7 +56,7 @@ def run_mala_experiments():
         config = ExperimentConfig(**config_dict)
 
         # Initialize model and sampler
-        model = StepRegression(config.D)
+        model = DummyModel(config.D)
         mala = MALA(
             model,
             y=y_observed,
@@ -73,14 +73,15 @@ def run_mala_experiments():
 
         # Run sampling
         theta_chains = mala.sample()
-        # Thin the chains - keep only every 10th iteration
-        # thinned_chains = theta_chains[:, ::10, :]
 
         results = {
             "init_norm": norm(theta_chains)[0],
             "theta_chains": theta_chains,
             "acceptance_ratio": mala.acceptance_ratio,
+            "theta_mean": mean(theta_chains),
+            "theta_std": sd(theta_chains),
             "average norm": norm(theta_chains)[-1],
+            "norm_of_each_sample": jnp.linalg.norm(theta_chains[:, -1, :], axis=0),
             "escaped": jnp.mean(jnp.linalg.norm(theta_chains[:, -1, :], axis=1) < 0.33),
             "norm_mean": jnp.linalg.norm(jnp.mean(theta_chains[:, -1, :], axis=0)),
         }

@@ -171,7 +171,6 @@ Detailed configuration can be found in `config.yaml`
             "norm of init:": results["init_norm"].tolist(),
             "acceptance_ratio": float(results["acceptance_ratio"]),
             "average_norm_of_last": results["average norm"].tolist(),
-            "norm of each sample": results["norm_of_each_sample"].tolist(),
             "escaped": float(results["escaped"]),
             "norm_mean": float(results["norm_mean"]),
             "storage_info": {

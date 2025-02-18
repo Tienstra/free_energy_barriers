@@ -94,22 +94,27 @@ class MALA:
 
         return theta_new, accept
 
-    def sample(self):
+    def sample(self, thin=1000):
         chains = []
         accept_counts = []
+
+        # Initialize storage for samples (adjusted for thinning)
+    
 
         for chain_idx in range(self.n_chains):
             key = random.fold_in(self.key, chain_idx)
             theta_current = self.theta_init[chain_idx]
             chain = [theta_current]
             accept_count = 0
+        
 
             for step in range(self.n_steps):
                 key, subkey = random.split(key)
                 theta_current, accepted = self.mala_step(subkey, theta_current)
-                chain.append(theta_current)
+                if step % thin == 0:
+                    chain.append(theta_current)
                 accept_count += accepted
-
+            
             chains.append(jnp.stack(chain))
             accept_counts.append(accept_count / self.n_steps)
 

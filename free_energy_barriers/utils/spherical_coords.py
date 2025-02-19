@@ -1,12 +1,11 @@
 from typing import Tuple, Sequence
-import jax
+from jax import jit,vmap, random
 import jax.numpy as jnp
-from jax import random
 import matplotlib.pyplot as plt
 from functools import partial
 
 
-@jax.jit
+@jit
 def _sample_spherical_coords_inner(
     key: random.PRNGKey,
     keys: random.PRNGKey,
@@ -21,7 +20,7 @@ def _sample_spherical_coords_inner(
     phi = random.uniform(keys, shape=(n_samples,), minval=0.0, maxval=max_val)
     return r, phi
 
-@partial(jax.jit, static_argnames=['n_dim', 'n_samples'])
+@partial(jit, static_argnames=['n_dim', 'n_samples'])
 def sample_spherical_coords(
     key: random.PRNGKey,
     n_dim: int,
@@ -44,28 +43,25 @@ def sample_spherical_coords(
         - Array of radial coordinates
         - Sequence of arrays containing angular coordinates
     """
-    # Split the key for different random operations
+     # Split the key for different random operations
     keys = random.split(key, n_dim)
 
     # Sample radial coordinate uniformly
     r = random.uniform(keys[0], shape=(n_samples,), minval=r_low, maxval=r_high)
 
-    # Initialize list to store angular coordinates
-    phis = []
+    # Generate angular coordinates using vmap
+    def sample_phi(key, is_last):
+        max_val = jnp.where(is_last, 2.0 * jnp.pi, jnp.pi)
+        return random.uniform(key, shape=(n_samples,), minval=0.0, maxval=max_val)
 
-    # Generate n-1 angular coordinates
-    for i in range(n_dim - 1):
-        is_last = i == n_dim - 2
-        max_val = 2.0 * jnp.pi if is_last else jnp.pi
-        phi = random.uniform(
-            keys[i + 1], shape=(n_samples,), minval=0.0, maxval=max_val
-        )
-        phis.append(phi)
+    # Create a list of boolean flags indicating if the angle is the last one
+    is_last = jnp.arange(n_dim - 1) == (n_dim - 2)
+    phis = vmap(sample_phi)(keys[1:], is_last)
 
     return r, phis
 
 
-@jax.jit
+@jit
 def spherical_to_cartesian(r: jnp.ndarray, phis: Sequence[jnp.ndarray]) -> jnp.ndarray:
     """
     Convert spherical coordinates to Cartesian coordinates using JAX.
@@ -81,26 +77,22 @@ def spherical_to_cartesian(r: jnp.ndarray, phis: Sequence[jnp.ndarray]) -> jnp.n
     n_samples = r.shape[0]
     n_dim = len(phis) + 1
 
-    # First coordinate (x)
-    first_coord = r * jnp.cos(phis[0])
+    # Compute the Cartesian coordinates using vectorized operations
+    sin_phis = jnp.sin(phis)
+    cos_phis = jnp.cos(phis)
 
-    # Middle coordinates
-    middle_coords = []
+    # Initialize the Cartesian coordinates with the first coordinate
+    x = r * cos_phis[0]
+
+    # Compute the middle coordinates
     for i in range(1, n_dim - 1):
-        coord = r.copy()
-        for j in range(i):
-            coord *= jnp.sin(phis[j])
-        coord *= jnp.cos(phis[i])
-        middle_coords.append(coord)
+        x = jnp.column_stack((x, r * jnp.prod(sin_phis[:i], axis=0) * cos_phis[i]))
 
-    # Last coordinate
-    last_coord = r.copy()
-    for i in range(n_dim - 1):
-        last_coord *= jnp.sin(phis[i])
+    # Compute the last coordinate
+    last_coord = r * jnp.prod(sin_phis, axis=0)
+    x = jnp.column_stack((x, last_coord))
 
-    # Combine all coordinates
-    coords = [first_coord] + middle_coords + [last_coord]
-    return jnp.stack(coords, axis=1)
+    return x
 
 
 if __name__ == "__main__":
@@ -108,7 +100,7 @@ if __name__ == "__main__":
     key = random.PRNGKey(42)
 
     # Parameters
-    n_dim = 3  # Number of dimensions
+    n_dim = 5000  # Number of dimensions
     n_samples = 10000  # Number of samples
     r_low = 0.9  # Lower bound for radial coordinate
     r_high = 1.0  # Upper bound for radial coordinate
@@ -118,27 +110,29 @@ if __name__ == "__main__":
 
     # Convert to Cartesian coordinates
     x = spherical_to_cartesian(r, phis)
+    if n_dim <=3:
+        # Convert JAX arrays to NumPy for plotting
+        x_np = jnp.asarray(x).copy()
 
-    # Convert JAX arrays to NumPy for plotting
-    x_np = jnp.asarray(x).copy()
+        # Create the 3D plot
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_subplot(111, projection="3d")
 
-    # Create the 3D plot
-    fig = plt.figure(figsize=(8, 8))
-    ax = fig.add_subplot(111, projection="3d")
+        # Create scatter plot
+        scatter = ax.scatter(
+            x_np[:, 0], x_np[:, 1], x_np[:, 2], alpha=0.1, c="blue", marker="."
+        )
 
-    # Create scatter plot
-    scatter = ax.scatter(
-        x_np[:, 0], x_np[:, 1], x_np[:, 2], alpha=0.1, c="blue", marker="."
-    )
+        # Set labels and title
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.set_title("Spherical Coordinates Sampling")
 
-    # Set labels and title
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_title("Spherical Coordinates Sampling")
+        # Set equal aspect ratio
+        ax.set_box_aspect([1, 1, 1])
 
-    # Set equal aspect ratio
-    ax.set_box_aspect([1, 1, 1])
-
-    # Show the plot
-    plt.show()
+        # Show the plot
+        plt.show()
+    else:
+        print("Sampling and conversion completed successfully!")

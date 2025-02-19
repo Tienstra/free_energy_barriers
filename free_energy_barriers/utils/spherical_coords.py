@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 from jax import random
 import matplotlib.pyplot as plt
+from functools import partial
 
 
 @jax.jit
@@ -20,7 +21,7 @@ def _sample_spherical_coords_inner(
     phi = random.uniform(keys, shape=(n_samples,), minval=0.0, maxval=max_val)
     return r, phi
 
-
+@partial(jax.jit, static_argnames=['n_dim', 'n_samples'])
 def sample_spherical_coords(
     key: random.PRNGKey,
     n_dim: int,

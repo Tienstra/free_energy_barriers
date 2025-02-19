@@ -141,7 +141,12 @@ class MALA:
 
         return theta_new, accept
 
-    def sample(self, thin=5000):
+    def sample(self, thin=None):
+        if thin is None:
+            thin = self.D /10
+        else: 
+            thin = 100
+        
         chains = []
         accept_counts = []
 

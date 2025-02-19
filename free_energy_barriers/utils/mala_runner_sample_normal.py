@@ -22,14 +22,14 @@ def run_mala_experiments():
     manager = ExperimentManager(project_root=".")
 
     # Set up base configuration
-    base_config = ExperimentConfig(
+    config = ExperimentConfig(
         D=1000,
         sigma_noise=1.0,
         epsilon=(1 / 1000),
         n_steps=1000,
         n_chains=50,
         model_type="DummyModel",
-        init_method="sample_annuli",
+        init_method="sample_prior",
         args=[],
         dtype="float16",
         description="MALA experiment with different init sampling from different annuli",
@@ -37,71 +37,43 @@ def run_mala_experiments():
 
     # Create synthetic data (same for all experiments)
     key = random.PRNGKey(42)
-    y_observed = jnp.zeros(base_config.D)
+    y_observed = jnp.zeros(config.D)
 
-    # Run experiments with different epsilon values
-    r_bounds = generate_bounds(start=0, stop=1, length=(1 / 9))
-    print(r_bounds)
+    # Initialize model and sampler
+    model = DummyModel(config.D)
+    mala = MALA(
+        model,
+        y=y_observed,
+        D=config.D,
+        sigma_noise=config.sigma_noise,
+        epsilon=config.epsilon,
+        n_steps=config.n_steps,
+        n_chains=config.n_chains,
+        initializer=config.init_method,
+        args=config.args,
+    )
 
-    for r_lowerupper in r_bounds:
-        config_dict = base_config.__dict__.copy()
-        config_dict.update(
-            {
-                "args": r_lowerupper,
-                "description": f"MALA experiment with radi upper and lower bounds={r_lowerupper}",
-                "timestamp": None,
-                "experiment_id": None,
-            }
-        )
-        config = ExperimentConfig(**config_dict)
+    print(f"\nRunning experiment to sample normal")
 
-        # Initialize model and sampler
-        model = DummyModel(config.D)
-        mala = MALA(
-            model,
-            y=y_observed,
-            D=config.D,
-            sigma_noise=config.sigma_noise,
-            epsilon=config.epsilon,
-            n_steps=config.n_steps,
-            n_chains=config.n_chains,
-            initializer=config.init_method,
-            args=config.args,
-        )
+    # Run sampling
+    theta_chains = mala.sample()
 
-        print(f"\nRunning experiment with epsilon={r_lowerupper}")
+    results = {
+        "init_norm": norm(theta_chains)[0],
+        "theta_chains": theta_chains,
+        "acceptance_ratio": mala.acceptance_ratio,
+        "average norm": norm(theta_chains)[-1],
+        "escaped": jnp.mean(jnp.linalg.norm(theta_chains[:, -1, :], axis=1) < 0.33),
+        "norm_mean": jnp.linalg.norm(jnp.mean(theta_chains[:, -1, :], axis=0)),
+    }
 
-        # Run sampling
-        theta_chains = mala.sample()
+    # Save results
+    exp_dir = manager.create_experiment_dir(config)
+    manager.save_config(config, exp_dir)
+    manager.save_results(results, exp_dir, config)
 
-        results = {
-            "init_norm": norm(theta_chains)[0],
-            "theta_chains": theta_chains,
-            "acceptance_ratio": mala.acceptance_ratio,
-            "theta_mean": mean(theta_chains),
-            "theta_std": sd(theta_chains),
-            "average norm": norm(theta_chains)[-1],
-            "norm_of_each_sample": jnp.linalg.norm(theta_chains[:, -1, :], axis=0),
-            "escaped": jnp.mean(jnp.linalg.norm(theta_chains[:, -1, :], axis=1) < 0.33),
-            "norm_mean": jnp.linalg.norm(jnp.mean(theta_chains[:, -1, :], axis=0)),
-        }
-
-        # Save results
-        exp_dir = manager.create_experiment_dir(config)
-        manager.save_config(config, exp_dir)
-        manager.save_results(results, exp_dir, config)
-
-        print(f"Experiment saved with ID: {config.experiment_id}")
-        print(f"Acceptance ratio: {mala.acceptance_ratio:.3f}")
-
-    # List all experiments
-    print("\nAll experiments:")
-    for exp in manager.list_experiments():
-        print(f"ID: {exp['id']}")
-        print(f"Description: {exp['description']}")
-        print(f"Acceptance ratio: {exp['acceptance_ratio']:.3f}")
-        print(f"Storage: {exp['storage_info']['memory_mb']:.2f} MB")
-        print()
+    print(f"Experiment saved with ID: {config.experiment_id}")
+    print(f"Acceptance ratio: {mala.acceptance_ratio:.3f}")
 
 
 if __name__ == "__main__":

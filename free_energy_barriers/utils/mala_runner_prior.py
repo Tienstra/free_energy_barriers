@@ -16,17 +16,17 @@ from jax import random
 import jax.numpy as jnp
 
 
-def run_mala_experiments():
+def run_mala_experiments(dim, n_steps=1000):
 
     # Initialize experiment manager
     manager = ExperimentManager(project_root=".")
 
     # Set up base configuration
     config = ExperimentConfig(
-        D=1000,
+        D=dim,
         sigma_noise=1.0,
-        epsilon=(1 / 1000),
-        n_steps=10000,
+        epsilon=(1 / dim),
+        n_steps=n_steps,
         n_chains=10,
         model_type="StepRegression",
         init_method="sample_prior",
@@ -77,4 +77,4 @@ def run_mala_experiments():
 
 
 if __name__ == "__main__":
-    run_mala_experiments()
+    run_mala_experiments(dim=1000, n_steps=10000)

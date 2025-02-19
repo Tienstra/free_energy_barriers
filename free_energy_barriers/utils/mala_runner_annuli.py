@@ -16,17 +16,17 @@ from jax import random
 import jax.numpy as jnp
 
 
-def run_mala_experiments():
+def run_mala_experiments(dim, n_steps=1000):
 
     # Initialize experiment manager
     manager = ExperimentManager(project_root=".")
 
     # Set up base configuration
     base_config = ExperimentConfig(
-        D=1000,
+        D=dim,
         sigma_noise=1.0,
-        epsilon=(1 / 1000),
-        n_steps=10000,
+        epsilon=(1 / dim),
+        n_steps=n_steps,
         n_chains=10,
         model_type="StepRegression",
         init_method="sample_annuli",
@@ -40,7 +40,9 @@ def run_mala_experiments():
     y_observed = random.normal(key, shape=(base_config.D,)) * 0.5
 
     # Run experiments with different epsilon values
-    r_bounds = generate_bounds(start=0, stop=1, length=(1 / 9))
+    #r_bounds = generate_bounds(start=0, stop=1, length=(1 / 3))
+    r_bounds = [[0.0, 0.33], [0.33, 0.66], [0.66, 1.0]]
+    # r_bounds = [[0.0, 0.33]]
     print(r_bounds)
 
     for r_lowerupper in r_bounds:
@@ -69,7 +71,7 @@ def run_mala_experiments():
             args=config.args,
         )
 
-        print(f"\nRunning experiment with epsilon={r_lowerupper}")
+        print(f"\nRunning experiment with radius={r_lowerupper}")
 
         # Run sampling
         theta_chains = mala.sample()
@@ -93,15 +95,6 @@ def run_mala_experiments():
         print(f"Experiment saved with ID: {config.experiment_id}")
         print(f"Acceptance ratio: {mala.acceptance_ratio:.3f}")
 
-    # List all experiments
-    print("\nAll experiments:")
-    for exp in manager.list_experiments():
-        print(f"ID: {exp['id']}")
-        print(f"Description: {exp['description']}")
-        print(f"Acceptance ratio: {exp['acceptance_ratio']:.3f}")
-        print(f"Storage: {exp['storage_info']['memory_mb']:.2f} MB")
-        print()
-
 
 if __name__ == "__main__":
-    run_mala_experiments()
+    run_mala_experiments(dim=5000, n_steps=50000)

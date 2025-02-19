@@ -52,6 +52,7 @@ class MALA:
         else:
             print("initialized at 0")
             return jnp.zeros(shape=(self.n_chains, self.D))
+
     @partial(jit, static_argnums=(0,))
     def log_likelihood(self, theta):
         """
@@ -60,24 +61,28 @@ class MALA:
         y_pred = self.regression_model.evaluate(theta)
         residuals = self.y - y_pred
         return -0.5 * jnp.sum(residuals**2) / self.sigma_noise**2
+
     @partial(jit, static_argnums=(0,))
     def log_prior(self, theta):
         """
         Log-prior for a Gaussian prior on theta.
         """
         return -0.5 * jnp.sum(theta**2) / self.sigma_prior**2
+
     @partial(jit, static_argnums=(0,))
     def log_posterior(self, theta):
         """
         Log-posterior: Sum of log-likelihood and log-prior.
         """
         return self.log_likelihood(theta) + self.log_prior(theta)
+
     @partial(jit, static_argnums=(0,))
     def gradient_log_posterior(self, theta):
         """
         Gradient of the log-posterior with respect to theta.
         """
         return grad(self.log_posterior)(theta)
+
     @partial(jit, static_argnums=(0,))
     def proposal_density_q(self, x_prime, x):
         """
@@ -95,6 +100,7 @@ class MALA:
         grad_log_pi_x = grad(self.log_posterior)(x)
         delta = x_prime - x - 0.5 * (self.epsilon**2) * grad_log_pi_x
         return -jnp.sum(delta**2) / (2 * self.epsilon**2)
+
     @partial(jit, static_argnums=(0,))
     def mala_step(self, rng_key, theta_current):
         """
@@ -135,7 +141,7 @@ class MALA:
 
         return theta_new, accept
 
-    def sample(self, thin=1000):
+    def sample(self, thin=5000):
         chains = []
         accept_counts = []
 
@@ -159,28 +165,3 @@ class MALA:
 
         self.acceptance_ratio = jnp.mean(jnp.array(accept_counts))
         return jnp.stack(chains)
-if __name__ == "__main__":
-
-    # Create some synthetic data for a Bayesian linear regression model
-    key = random.PRNGKey(42)
-    D = 100
-    x = random.uniform(key, shape=(D,), minval=0.0, maxval=1.0)  # Input data
-    reg_model = StepRegression(N)
-    theta_true = jnp.zeros(N)
-    y_observed = random.normal(key, shape=(N,)) * 0.5  # Add noise to the data
-
-    # Initialize the MALA sampler
-    mala_sampler = MALA(
-        reg_model,
-        y=y_observed,
-        D=D,
-        sigma_noise=1.0,
-        epsilon=0.005,
-        n_steps=50000,
-        n_chains=2,
-        key=key,
-    )
-    theta_chains = mala_sampler.sample()
-    print("Acceptance ratio:", mala_sampler.acceptance_ratio)
-
-

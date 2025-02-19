@@ -1,105 +1,71 @@
 import jax.numpy as jnp
-from jax import random, grad, jit
-from functools import partial
+from jax import random
 
 import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from plots.plotter import TracePlot, NormPlot
-from models.regression import DummyModel, StepRegression
-from utils.tools import sample_annuli, sample_stdnorm_prior
-from metrics.metrics import mean, sd, norm
+from models.regression import DummyModel
+from samplers.local import MALA
 
 
-class MALASampleNormal:
-    def __init__(
-        self,
-        D=100,
-        sigma_prior=None,
-        epsilon=0.0001,
-        n_steps=1000,
-        n_chains=2,
-        initializer=None,
-        args=[],
-    ):
-        self.D = D
-        self.sigma_prior = 1 / jnp.sqrt(self.D) if sigma_prior is None else sigma_prior
-        self.epsilon = epsilon
-        self.n_steps = n_steps
-        self.n_chains = n_chains
-        self.key = random.PRNGKey(42)
+def test_prior_sampling():
+    # Test parameters
+    D = 100
+    n_steps = 1000
+    n_chains = 20
+    epsilon = 0.005
 
-        # Initialize chains
-        self.theta_init = self._initialize_chains(initializer, args)
-        self.acceptance_ratio = 0
+    # Initialize with DummyModel to effectively remove likelihood
+    model = DummyModel(D)
+    y_observed = jnp.zeros(D)
 
-    def _initialize_chains(self, initializer, args):
-        if initializer == "sample_annuli" and args:
-            print("initialized with sample annuli")
-            # You'll need to make sure sample_annuli is properly imported
-            return sample_annuli(self.D, self.n_chains, args)
-        elif initializer == "sample_prior":
-            print("initialized with sample std prior")
-            return (
-                random.normal(self.key, shape=(self.n_chains, self.D))
-                * self.sigma_prior
-            )
-        else:
-            print("initialized at 0")
-            return jnp.zeros(shape=(self.n_chains, self.D))
+    # Create MALA sampler
+    mala_sampler = MALA(
+        model,
+        y=y_observed,
+        D=D,
+        sigma_noise=1.0,
+        epsilon=epsilon,
+        n_steps=n_steps,
+        n_chains=n_chains,
+        initializer="sample_prior",
+    )
 
-    @partial(jit, static_argnums=(0,))
-    def log_prior(self, theta):
-        return -0.5 * jnp.sum(theta**2) / self.sigma_prior**2
+    # Sample
+    theta_chains = mala_sampler.sample(thin=100)
 
-    @partial(jit, static_argnums=(0,))
-    def log_posterior(self, theta):
-        # In this case, posterior = prior (no likelihood)
-        return self.log_prior(theta)
+    # Analysis
+    final_samples = theta_chains[:, -1, :]  # Shape: (n_chains, D)
 
-    @partial(jit, static_argnums=(0,))
-    def mala_step(self, key, theta_current):
-        key1, key2 = random.split(key)
+    # Compute statistics
+    norms = jnp.linalg.norm(final_samples, axis=1)
+    mean_norm = jnp.mean(norms)
+    std_norm = jnp.std(norms)
 
-        # Compute gradient and propose new theta
-        grad_log_post = grad(self.log_posterior)(theta_current)
-        noise = random.normal(key1, shape=theta_current.shape)
-        theta_proposed = (
-            theta_current + 0.5 * self.epsilon**2 * grad_log_post + self.epsilon * noise
-        )
+    # Component-wise statistics
+    mean_component = jnp.mean(final_samples)
+    std_component = jnp.std(final_samples)
 
-        # Compute log probabilities
-        log_post_current = self.log_posterior(theta_current)
-        log_post_proposed = self.log_posterior(theta_proposed)
+    print(f"Expected norm (theory): 1.0")
+    print(f"Actual mean norm: {mean_norm:.3f} ± {std_norm:.3f}")
+    print(f"Component mean: {mean_component:.3f}")
+    print(f"Component std: {std_component:.3f}")
+    print(f"Expected component std (theory): {1/jnp.sqrt(D):.3f}")
+    print(f"Acceptance ratio: {mala_sampler.acceptance_ratio:.3f}")
 
-        # Compute acceptance ratio
-        log_accept_ratio = log_post_proposed - log_post_current
+    # Check mixing
+    early_norms = jnp.linalg.norm(theta_chains[:, 1, :], axis=1)
+    mid_norms = jnp.linalg.norm(theta_chains[:, len(theta_chains[0]) // 2, :], axis=1)
+    late_norms = norms
 
-        # Accept/reject
-        accept = jnp.log(random.uniform(key2)) < log_accept_ratio
-        theta_new = jnp.where(accept, theta_proposed, theta_current)
+    print("\nMixing check (norms at different times):")
+    print(f"Early: {jnp.mean(early_norms):.3f}")
+    print(f"Middle: {jnp.mean(mid_norms):.3f}")
+    print(f"Late: {jnp.mean(late_norms):.3f}")
 
-        return theta_new, accept
+    return theta_chains
 
-    def sample(self):
-        chains = []
-        accept_counts = []
 
-        for chain_idx in range(self.n_chains):
-            key = random.fold_in(self.key, chain_idx)
-            theta_current = self.theta_init[chain_idx]
-            chain = [theta_current]
-            accept_count = 0
-
-            for step in range(self.n_steps):
-                key, subkey = random.split(key)
-                theta_current, accepted = self.mala_step(subkey, theta_current)
-                chain.append(theta_current)
-                accept_count += accepted
-
-            chains.append(jnp.stack(chain))
-            accept_counts.append(accept_count / self.n_steps)
-
-        self.acceptance_ratio = jnp.mean(jnp.array(accept_counts))
-        return jnp.stack(chains)
+if __name__ == "__main__":
+    chains = test_prior_sampling()

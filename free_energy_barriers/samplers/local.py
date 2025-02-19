@@ -52,44 +52,85 @@ class MALA:
         else:
             print("initialized at 0")
             return jnp.zeros(shape=(self.n_chains, self.D))
-
     @partial(jit, static_argnums=(0,))
     def log_likelihood(self, theta):
+        """
+        Log-likelihood for Gaussian likelihood.
+        """
         y_pred = self.regression_model.evaluate(theta)
         residuals = self.y - y_pred
         return -0.5 * jnp.sum(residuals**2) / self.sigma_noise**2
-
     @partial(jit, static_argnums=(0,))
     def log_prior(self, theta):
+        """
+        Log-prior for a Gaussian prior on theta.
+        """
         return -0.5 * jnp.sum(theta**2) / self.sigma_prior**2
-
     @partial(jit, static_argnums=(0,))
     def log_posterior(self, theta):
+        """
+        Log-posterior: Sum of log-likelihood and log-prior.
+        """
         return self.log_likelihood(theta) + self.log_prior(theta)
-
-    def gradient_log_posterior(self, theta):
-        return grad(self.log_posterior)(theta)
-
     @partial(jit, static_argnums=(0,))
-    def mala_step(self, key, theta_current):
-        key1, key2 = random.split(key)
+    def gradient_log_posterior(self, theta):
+        """
+        Gradient of the log-posterior with respect to theta.
+        """
+        return grad(self.log_posterior)(theta)
+    @partial(jit, static_argnums=(0,))
+    def proposal_density_q(self, x_prime, x):
+        """
+        Proposal density q(x' | x) using the MALA formula:
+        q(x' | x) ∝ exp(-1 / 4τ * ||x' - x - τ ∇log π(x)||^2)
 
-        # Compute gradient and propose new theta
-        grad_log_post = grad(self.log_posterior)(theta_current)
-        noise = random.normal(key1, shape=theta_current.shape)
+        Parameters:
+        - x_prime: The proposed state.
+        - x: The current state.
+        - tau: The step size.
+
+        Returns:
+        - log_q: The log of the proposal density q(x' | x).
+        """
+        grad_log_pi_x = grad(self.log_posterior)(x)
+        delta = x_prime - x - 0.5 * (self.epsilon**2) * grad_log_pi_x
+        return -jnp.sum(delta**2) / (2 * self.epsilon**2)
+    @partial(jit, static_argnums=(0,))
+    def mala_step(self, rng_key, theta_current):
+        """
+        Single MALA step: Propose a new theta using Langevin dynamics and accept/reject it.
+        """
+        # Compute gradient of log-posterior at current theta
+        grad_log_post = self.gradient_log_posterior(theta_current)
+
+        # Propose a new theta
+        noise = random.normal(rng_key, shape=theta_current.shape)
         theta_proposed = (
             theta_current + 0.5 * self.epsilon**2 * grad_log_post + self.epsilon * noise
         )
 
-        # Compute log probabilities
+        # Compute log-posterior for current and proposed thetas
         log_post_current = self.log_posterior(theta_current)
         log_post_proposed = self.log_posterior(theta_proposed)
 
-        # Compute acceptance ratio
-        log_accept_ratio = log_post_proposed - log_post_current
+        # Compute proposal densities q(x' | x) and q(x | x')
+        log_q_current_given_proposed = self.proposal_density_q(
+            theta_current, theta_proposed
+        )
+        log_q_proposed_given_current = self.proposal_density_q(
+            theta_proposed, theta_current
+        )
 
-        # Accept/reject
-        accept = jnp.log(random.uniform(key2)) < log_accept_ratio
+        # Compute acceptance ratio
+        log_accept_ratio = (log_post_proposed + log_q_current_given_proposed) - (
+            log_post_current + log_q_proposed_given_current
+        )
+
+        # Compute acceptance ratio (simplified for symmetric proposal)
+        # log_accept_ratio = log_post_proposed - log_post_current
+
+        # Accept or reject the proposal
+        accept = jnp.log(random.uniform(rng_key)) < log_accept_ratio
         theta_new = jnp.where(accept, theta_proposed, theta_current)
 
         return theta_new, accept
@@ -118,31 +159,28 @@ class MALA:
 
         self.acceptance_ratio = jnp.mean(jnp.array(accept_counts))
         return jnp.stack(chains)
-
-
 if __name__ == "__main__":
-    # Test code
+
+    # Create some synthetic data for a Bayesian linear regression model
     key = random.PRNGKey(42)
     D = 100
-    reg_model = StepRegression(D)
-    theta_true = jnp.zeros(D)
-    y_observed = random.normal(key, shape=(D,)) * 0.5
+    x = random.uniform(key, shape=(D,), minval=0.0, maxval=1.0)  # Input data
+    reg_model = StepRegression(N)
+    theta_true = jnp.zeros(N)
+    y_observed = random.normal(key, shape=(N,)) * 0.5  # Add noise to the data
 
+    # Initialize the MALA sampler
     mala_sampler = MALA(
         reg_model,
         y=y_observed,
         D=D,
         sigma_noise=1.0,
         epsilon=0.005,
-        n_steps=500,
-        n_chains=20,
-        # initializer="sample_prior",
+        n_steps=50000,
+        n_chains=2,
+        key=key,
     )
-
     theta_chains = mala_sampler.sample()
     print("Acceptance ratio:", mala_sampler.acceptance_ratio)
-    # Display posterior estimates
-    print(f"{mean(theta_chains) = }")
-    print(f"{sd(theta_chains) = }")
-    print(f"{norm(theta_chains)[0] = }")
-    print(f"{norm(theta_chains) = }")
+
+

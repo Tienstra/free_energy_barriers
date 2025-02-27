@@ -145,7 +145,7 @@ class MALA:
         if thin is None:
             thin = self.D /10
         else: 
-            thin = 100
+            thin=thin
         
         chains = []
         accept_counts = []

@@ -27,7 +27,7 @@ def run_mala_experiments(dim, n_steps=1000):
         sigma_noise=1.0,
         epsilon=(1 / dim),
         n_steps=n_steps,
-        n_chains=10,
+        n_chains=50,
         model_type="StepRegression",
         init_method="sample_annuli",
         args=[],
@@ -40,8 +40,8 @@ def run_mala_experiments(dim, n_steps=1000):
     y_observed = random.normal(key, shape=(base_config.D,)) * 0.5
 
     # Run experiments with different epsilon values
-    #r_bounds = generate_bounds(start=0, stop=1, length=(1 / 3))
-    r_bounds = [[0.0, 0.33], [0.33, 0.66], [0.66, 1.0]]
+    r_bounds = generate_bounds(start=0, stop=1, length=(1 / 9))
+    #r_bounds = [[0.0, 0.33], [0.33, 0.66], [0.66, 1.0]]
     # r_bounds = [[0.0, 0.33]]
     print(r_bounds)
 
@@ -97,4 +97,4 @@ def run_mala_experiments(dim, n_steps=1000):
 
 
 if __name__ == "__main__":
-    run_mala_experiments(dim=5000, n_steps=50000)
+    run_mala_experiments(dim=10, n_steps=1000)

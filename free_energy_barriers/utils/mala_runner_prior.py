@@ -27,7 +27,7 @@ def run_mala_experiments(dim, n_steps=1000):
         sigma_noise=1.0,
         epsilon=(1 / dim),
         n_steps=n_steps,
-        n_chains=10,
+        n_chains=50,
         model_type="StepRegression",
         init_method="sample_prior",
         args=[],
@@ -77,4 +77,4 @@ def run_mala_experiments(dim, n_steps=1000):
 
 
 if __name__ == "__main__":
-    run_mala_experiments(dim=1000, n_steps=10000)
+    run_mala_experiments(dim=10, n_steps=1000)

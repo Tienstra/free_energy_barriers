@@ -21,16 +21,31 @@ class Regression(ABC):
         pass
 
     @abstractmethod
-    def evaluate():
+    def evaluate(self):
         pass
 
+    def log_likelihood(self, theta, y, sigma_noise=1.0):
+        """
+        Compute log-likelihood assuming Gaussian noise.
+
+        Args:
+            theta: Model parameters
+            y: Observed data
+            sigma_noise: Standard deviation of observation noise
+
+        Returns:
+            Log-likelihood value
+        """
+        y_pred = self.evaluate(theta)
+        residuals = y - y_pred
+        return -0.5 * jnp.sum(residuals ** 2) / sigma_noise ** 2
 
 class DummyModel(Regression):
     def __init__(self, N):
         super().__init__()
         self.N = N
 
-    def evaluate(self, theta):
+    def evaluate(self):
         return jnp.zeros(self.N)
 
 
@@ -50,7 +65,7 @@ class StepRegression(Regression):
         T = self.T
         rho = self.rho
 
-        # Replace if/else with JAX's where
+
         w_case1 = 4 * (T * r) ** 2
         w_case2 = (T * t) ** 2 + T * (r - (t / 2))
         w_case3 = (T * t) ** 2 + (T * (t / 2)) + rho * (r - t)
@@ -75,71 +90,35 @@ class StepRegression(Regression):
 
 
 class LogisticRegression(Regression):
-    def __init__(self, N, learning_rate=0.01, max_iter=1000):
+    def __init__(self, N, p):
         super().__init__()
-        self.N = N
-        self.learning_rate = learning_rate
-        self.max_iter = max_iter
-        self.theta = None
+        self.N = N #number of observations
+        self.p = p #number of parameters beta_j's
+        self.beta = jnp.zeros(p)
 
     @partial(jit, static_argnums=(0,))
-    def sigmoid(self, t):
+    def evaluate(self, t):
         """
-        Compute the sigmoid function: σ(t) = 1 / (1 + e^(-t))
+        Compute the sigmoid function: p(t) = 1 / (1 + e^(-t))
         """
         return 1 / (1 + jnp.exp(-t))
 
     @partial(jit, static_argnums=(0,))
-    def evaluate(self, X):
-        """
-        Compute σ(θᵀx)
-        Args:
-            X: Input features of shape (N, num_features)
-        Returns:
-            Predicted probabilities of shape (N,)
-        """
-        z = jnp.dot(X, self.theta)
-        return self.sigmoid(z)
+    def log_likelihood(self, X, y):
 
-    @partial(jit, static_argnums=(0,))
-    def cost_function(self, X, y):
-        """
-        Compute the cost function J(θ):
-        J(θ) = -1/m ∑[y⁽ⁱ⁾log(h_θ(x⁽ⁱ⁾)) + (1-y⁽ⁱ⁾)log(1-h_θ(x⁽ⁱ⁾))]
-        """
-        m = X.shape[0]
-        h = self.evaluate(X)
-        return -1 / m * jnp.sum(y * jnp.log(h) + (1 - y) * jnp.log(1 - h))
+        n = X.shape[0]
+
+        return -1 / n * jnp.sum(y * jnp.log(self.evaluate(X@self.beta)) + (1 - y) * jnp.log(1 - self.evaluate(X@self.beta)))
 
     @partial(jit, static_argnums=(0,))
     def gradient(self, X, y):
         """
-        Compute the gradient of the cost function:
-        ∇J(θ) = 1/m X^T(h_θ(X) - y)
+        Compute the gradient of the loglik function:
         """
-        m = X.shape[0]
-        h = self.evaluate(X)
-        return 1 / m * jnp.dot(X.T, (h - y))
+        n = X.shape[0]
 
-    def fit(self, X, y):
-        """
-        Fit the logistic regression model using gradient descent
-        Args:
-            X: Training features of shape (N, num_features)
-            y: Binary target values of shape (N,)
-        """
-        # Initialize parameters
-        key = random.PRNGKey(0)
-        self.theta = random.normal(key, shape=(X.shape[1],))
+        return 1 / n * jnp.dot(X.T, (self.evaluate(X@self.beta) - y))
 
-        # Gradient descent
-        for i in range(self.max_iter):
-            grad_value = self.gradient(X, y)
-            self.theta = self.theta - self.learning_rate * grad_value
-
-            # Optional: add convergence check here
-            if jnp.all(jnp.abs(grad_value) < 1e-5):
-                break
 
     def predict(self, X, threshold=0.5):
         """
@@ -150,24 +129,24 @@ class LogisticRegression(Regression):
         Returns:
             Binary predictions (0 or 1)
         """
-        probabilities = self.evaluate(X)
+        probabilities = self.evaluate(X.T@self.beta)
         return (probabilities >= threshold).astype(int)
 
 
 if __name__ == "__main__":
     X = np.linspace(-10, 10, 100).reshape(-1, 1)
-    model = LogisticRegression(N=100)
-    model.theta = jnp.array([1.0])  # Set a simple weight for testing
+    model = LogisticRegression(N=100, p=100)
+    model.beta = jnp.array([1.0])  # Set a simple weight for testing
 
     # Compute predictions
     predictions = model.evaluate(X)
 
     # Create the plot
     plt.figure(figsize=(10, 6))
-    plt.plot(X, predictions, label="Sigmoid Function")
+    plt.plot(X, predictions)
     plt.title("Logistic Regression Evaluation Function")
-    plt.xlabel("z = θᵀx")
-    plt.ylabel("σ(z)")
+    plt.xlabel("X@Beta")
+    plt.ylabel("p(X@Beta)")
     plt.grid(True)
     plt.legend()
     plt.show()

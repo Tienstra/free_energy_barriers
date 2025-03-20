@@ -6,9 +6,16 @@ from functools import partial
 class Kernel:
     """Base class for MCMC kernels"""
 
-    def __init__(self, log_posterior_fn, gradient_fn=None):
+    def __init__(self, log_posterior_fn, gradient_fn=None):  # Tienstra
         self.log_posterior_fn = log_posterior_fn
-        self.gradient_fn = gradient_fn if gradient_fn is not None else grad(log_posterior_fn)
+
+        # Create the gradient function if not provided
+        if gradient_fn is not None:
+            # Store the provided gradient function
+            self.gradient_fn = gradient_fn
+        else:
+            # Create and JIT the gradient function
+            self.gradient_fn = jit(grad(log_posterior_fn))
 
     def step(self, rng_key, theta_current):
         """Perform one step of the kernel"""

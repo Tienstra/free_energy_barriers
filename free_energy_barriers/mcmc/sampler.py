@@ -38,7 +38,7 @@ class MCMC:
 
     def sample(self, thin=None):
         if thin is None:
-            thin = self.D / 10
+            thin = int(self.D / 10)
 
         chains = []
         accept_counts = []

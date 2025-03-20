@@ -4,7 +4,8 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 import sys
 import os
-from jax import random
+from jax import random, jit
+from functools import partial
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -75,6 +76,23 @@ def generate_bounds(start=0, stop=1, length=0.33):
     return pairs
 
 
+@partial(jax.jit, static_argnums=(1,))
+def gaussian_log_prior(theta, sigma_prior=1.0):
+    return -0.5 * jnp.sum(theta**2) / sigma_prior**2
+
+
+def create_log_posterior(regression_model, y, sigma_noise=1.0, log_prior_fn=None, sigma_prior=1.0):
+    # Use provided prior or default to Gaussian
+    if log_prior_fn is None:
+        log_prior_fn = lambda theta: gaussian_log_prior(theta, sigma_prior)
+
+    @partial(jit, static_argnums=(0,))
+    def log_posterior_fn(theta):
+        log_like = regression_model.log_likelihood(theta, y, sigma_noise)
+        log_prior = log_prior_fn(theta)
+        return log_like + log_prior
+
+    return log_posterior_fn
 # Example usage
 if __name__ == "__main__":
     # Set random seed for reproducibility

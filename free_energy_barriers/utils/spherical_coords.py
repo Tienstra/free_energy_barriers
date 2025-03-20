@@ -100,8 +100,8 @@ if __name__ == "__main__":
     key = random.PRNGKey(42)
 
     # Parameters
-    n_dim = 5000  # Number of dimensions
-    n_samples = 10000  # Number of samples
+    n_dim = 3  # Number of dimensions
+    n_samples = 10  # Number of samples
     r_low = 0.9  # Lower bound for radial coordinate
     r_high = 1.0  # Upper bound for radial coordinate
 

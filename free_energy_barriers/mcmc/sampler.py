@@ -3,6 +3,11 @@
 import jax.numpy as jnp
 from jax import random
 
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from utils.tools import sample_annuli, sample_stdnorm_prior
 
 
 class MCMC:
@@ -22,18 +27,25 @@ class MCMC:
         self.D = D
         self.n_steps = n_steps
         self.n_chains = n_chains
+        self.sigma_prior = 1 / jnp.sqrt(self.D)
         self.key = random.PRNGKey(seed)
 
         # Initialize chains
         self.theta_init = self._initialize_chains(initializer, init_args)
         self.acceptance_ratio = 0
 
-    def _initialize_chains(self, initializer, args):
-        if initializer is not None and callable(initializer):
-            print(f"Initialized with custom initializer")
-            return initializer(self.n_chains, self.D, *args)
+    def _initialize_chains(self, initializer, init_args):
+        if initializer == "sample_annuli" and init_args:
+            print("initialized with sample annuli")
+            return sample_annuli(self.D, self.n_chains, init_args)
+        elif initializer == "sample_prior":
+            print("initialized with sample std prior")
+            return (
+                    random.normal(self.key, shape=(self.n_chains, self.D))
+                    * self.sigma_prior
+            )
         else:
-            print("Initialized at 0")
+            print("initialized at 0")
             return jnp.zeros(shape=(self.n_chains, self.D))
 
     def sample(self, thin=None):

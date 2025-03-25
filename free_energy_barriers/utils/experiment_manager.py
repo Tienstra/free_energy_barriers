@@ -1,3 +1,5 @@
+from symtable import Class
+
 import yaml
 import json
 from dataclasses import dataclass, asdict
@@ -7,6 +9,16 @@ import jax.numpy as jnp
 import numpy as np
 from pathlib import Path
 import uuid
+
+import sys
+import os
+import matplotlib.colors as mcolors
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Import your modules
+from models.regression import LogisticRegression
+from mcmc.kernels import Kernel, MALAKernel
+from mcmc.sampler import MCMC
 
 # Define README template
 README_TEMPLATE = """# Experiments Directory
@@ -43,19 +55,21 @@ Each experiment is stored in a directory named with the format: `YYYYMMDD_HHMMSS
 
 @dataclass
 class ExperimentConfig:
-    # MALA parameters
-    D: int
-    sigma_noise: float
-    epsilon: float
-    n_steps: int
+    # MALA kernel parameters
+    epsilon: float  # step size should be 1/L*D
+
+    # MCMC sampler parameters
+    kernel: Kernel  # type of transition kernel that implements the step
+    D: int  # dim of parameter
+    n_steps: int  # step size
     n_chains: int
 
-    # Model parameters
-    model_type: str  # e.g., "StepRegression", "DummyModel",
-
     # Initialization parameters
-    init_method: str
+    init_method: str  # e.g. sample_annuli, sample_prior
     args: list
+
+    # Model
+    model_type: str  # e.g., "StepRegression", "DummyModel",
 
     # Storage parameters
     dtype: str = "float16"  # Options: 'float16', 'float32', 'float64'
@@ -139,6 +153,7 @@ class ExperimentManager:
 
 ## Key Parameters
 - Model: {config.model_type}
+- Kernel: {config.kernel}
 - Chains: {config.n_chains}
 - Steps: {config.n_steps}
 - Epsilon: {config.epsilon}

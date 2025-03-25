@@ -8,11 +8,10 @@ from utils.experiment_manager import (
     ExperimentManager,
     ExperimentConfig,
 )
-from samplers.local import MALA
-from models.regression import StepRegression
-from utils.tools import generate_bounds, sample_annuli
-from metrics.metrics import mean, sd, norm
-from jax import random
+from mcmc.sampler import MCMC
+from mcmc.kernels import MALAKernel
+from models.regression import StepRegression, LogisticRegression
+from utils.tools import create_log_posterior, generate_synthetic_data, generate_bounds
 import jax.numpy as jnp
 
 
@@ -23,26 +22,38 @@ def run_mala_experiments(dim, n_steps=1000):
 
     # Set up base configuration
     base_config = ExperimentConfig(
-        D=dim,
-        sigma_noise=1.0,
         epsilon=(1 / dim),
+        kernel=MALAKernel,
+        D=dim,
         n_steps=n_steps,
-        n_chains=10,
-        model_type="StepRegression",
+        n_chains=2,
+        model_type="LogisticRegression",
         init_method="sample_annuli",
         args=[],
         dtype="float16",
-        description="MALA experiment with different init sampling from different annuli",
+        description="MALA experiment init w prior",
     )
 
-    # Create synthetic data (same for all experiments)
-    key = random.PRNGKey(42)
-    y_observed = random.normal(key, shape=(base_config.D,)) * 0.5
+    # Generate synthetic data
+    n_samples = config.D
+    n_features = config.D
+    X, y, true_beta = generate_synthetic_data(n_samples, n_features)
 
-    # Run experiments with different epsilon values
-    #r_bounds = generate_bounds(start=0, stop=1, length=(1 / 3))
-    r_bounds = [[0.0, 0.33], [0.33, 0.66], [0.66, 1.0]]
-    # r_bounds = [[0.0, 0.33]]
+    # Convert to JAX arrays
+    X_jax = jnp.array(X)
+    y_jax = jnp.array(y)
+
+    # Initialize model and sampler
+    model = LogisticRegression(N=n_samples, p=n_features)
+    sigma_prior = 1/jnp.sqrt(config.D)
+    log_posterior_fn = create_log_posterior(
+        model, X_jax, y_jax, sigma_prior
+    )
+    # Initialize kernel
+    mala_kernel = MALAKernel(log_posterior_fn, epsilon=base_config.epsilon)
+
+    r_bounds = generate_bounds(start=0, stop=1, length=(1 / 3))
+
     print(r_bounds)
 
     for r_lowerupper in r_bounds:
@@ -57,34 +68,28 @@ def run_mala_experiments(dim, n_steps=1000):
         )
         config = ExperimentConfig(**config_dict)
 
-        # Initialize model and sampler
-        model = StepRegression(config.D)
-        mala = MALA(
-            model,
-            y=y_observed,
-            D=config.D,
-            sigma_noise=config.sigma_noise,
-            epsilon=config.epsilon,
-            n_steps=config.n_steps,
-            n_chains=config.n_chains,
-            initializer=config.init_method,
-            args=config.args,
+        # Initialize sampler
+        mcmc = MCMC(
+            kernel=mala_kernel,
+            D=n_features,
+            n_steps=50000,
+            n_chains=5,
+            initializer="sample_prior",
+            init_args=[],
+            seed=45,
         )
 
         print(f"\nRunning experiment with radius={r_lowerupper}")
-
         # Run sampling
-        theta_chains = mala.sample()
-        # Thin the chains - keep only every 10th iteration
-        # thinned_chains = theta_chains[:, ::10, :]
+        samples = mcmc.sample()
 
         results = {
-            "init_norm": norm(theta_chains)[0],
-            "theta_chains": theta_chains,
-            "acceptance_ratio": mala.acceptance_ratio,
-            "average norm": norm(theta_chains)[-1],
-            "escaped": jnp.mean(jnp.linalg.norm(theta_chains[:, -1, :], axis=1) < 0.33),
-            "norm_mean": jnp.linalg.norm(jnp.mean(theta_chains[:, -1, :], axis=0)),
+            "init_norm": jnp.linalg.norm(samples[:,0,:]),
+            "theta_chains": samples,
+            "acceptance_ratio": mcmc.acceptance_ratio,
+            "average norm": jnp.linalg.norm(samples[:,-1,:]),
+            "escaped": jnp.mean(jnp.linalg.norm(samples[:, -1, :], axis=1) < 0.33),
+            "norm_mean": jnp.linalg.norm(jnp.mean(samples[:, -1, :], axis=0)),
         }
 
         # Save results
@@ -93,8 +98,8 @@ def run_mala_experiments(dim, n_steps=1000):
         manager.save_results(results, exp_dir, config)
 
         print(f"Experiment saved with ID: {config.experiment_id}")
-        print(f"Acceptance ratio: {mala.acceptance_ratio:.3f}")
+        print(f"Acceptance ratio: {mcmc.acceptance_ratio:.3f}")
 
 
 if __name__ == "__main__":
-    run_mala_experiments(dim=5000, n_steps=50000)
+    run_mala_experiments(dim=10, n_steps=100)

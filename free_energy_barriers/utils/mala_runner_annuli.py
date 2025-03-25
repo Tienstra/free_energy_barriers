@@ -35,8 +35,8 @@ def run_mala_experiments(dim, n_steps=1000):
     )
 
     # Generate synthetic data
-    n_samples = config.D
-    n_features = config.D
+    n_samples = base_config.D
+    n_features = base_config.D
     X, y, true_beta = generate_synthetic_data(n_samples, n_features)
 
     # Convert to JAX arrays
@@ -45,7 +45,7 @@ def run_mala_experiments(dim, n_steps=1000):
 
     # Initialize model and sampler
     model = LogisticRegression(N=n_samples, p=n_features)
-    sigma_prior = 1/jnp.sqrt(config.D)
+    sigma_prior = 1/jnp.sqrt(base_config.D)
     log_posterior_fn = create_log_posterior(
         model, X_jax, y_jax, sigma_prior
     )

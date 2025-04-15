@@ -27,11 +27,11 @@ def run_mala_experiments(dim, n_steps=1000):
         D=dim,
         n_steps=n_steps,
         n_chains=2,
-        model_type="LogisticRegression",
+        model_type="StepRegression",
         init_method="sample_annuli",
         args=[],
         dtype="float16",
-        description="MALA experiment init w prior",
+        description="MALA experiment init w annuli",
     )
 
     # Generate synthetic data
@@ -74,8 +74,8 @@ def run_mala_experiments(dim, n_steps=1000):
             D=n_features,
             n_steps=50000,
             n_chains=5,
-            initializer="sample_prior",
-            init_args=[],
+            initializer=base_config.init_method,
+            init_args=config.args,
             seed=45,
         )
 

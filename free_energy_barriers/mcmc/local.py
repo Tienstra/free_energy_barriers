@@ -143,10 +143,10 @@ class MALA:
 
     def sample(self, thin=None):
         if thin is None:
-            thin = self.D /10
-        else: 
+            thin = self.D / 10
+        else:
             thin = 100
-        
+
         chains = []
         accept_counts = []
 

@@ -14,14 +14,14 @@ class MCMC:
     """MCMC sampler that takes in a kernel"""
 
     def __init__(
-            self,
-            kernel,
-            D=100,
-            n_steps=1000,
-            n_chains=2,
-            initializer=None,
-            init_args=[],
-            seed=42
+        self,
+        kernel,
+        D=100,
+        n_steps=1000,
+        n_chains=2,
+        initializer=None,
+        init_args=[],
+        seed=42,
     ):
         self.kernel = kernel
         self.D = D
@@ -41,8 +41,8 @@ class MCMC:
         elif initializer == "sample_prior":
             print("initialized with sample std prior")
             return (
-                    random.normal(self.key, shape=(self.n_chains, self.D))
-                    * self.sigma_prior
+                random.normal(self.key, shape=(self.n_chains, self.D))
+                * self.sigma_prior
             )
         else:
             print("initialized at 0")

@@ -45,10 +45,8 @@ def run_mala_experiments(dim, n_steps=1000):
 
     # Initialize model and sampler
     model = LogisticRegression(N=n_samples, p=n_features)
-    sigma_prior = 1/jnp.sqrt(config.D)
-    log_posterior_fn = create_log_posterior(
-        model, X_jax, y_jax, sigma_prior
-    )
+    sigma_prior = 1 / jnp.sqrt(config.D)
+    log_posterior_fn = create_log_posterior(model, X_jax, y_jax, sigma_prior)
     # Initialize kernel
     mala_kernel = MALAKernel(log_posterior_fn, epsilon=config.epsilon)
 
@@ -67,10 +65,10 @@ def run_mala_experiments(dim, n_steps=1000):
     samples = mcmc.sample()
 
     results = {
-        "init_norm": jnp.linalg.norm(samples[:,0,:]),
+        "init_norm": jnp.linalg.norm(samples[:, 0, :]),
         "theta_chains": samples,
         "acceptance_ratio": mcmc.acceptance_ratio,
-        "average norm": jnp.linalg.norm(samples[:,-1,:]),
+        "average norm": jnp.linalg.norm(samples[:, -1, :]),
         "escaped": jnp.mean(jnp.linalg.norm(samples[:, -1, :], axis=1) < 0.33),
         "norm_mean": jnp.linalg.norm(jnp.mean(samples[:, -1, :], axis=0)),
     }

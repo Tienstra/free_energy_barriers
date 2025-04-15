@@ -15,6 +15,7 @@ class Kernel:
 
     def __str__(self):
         return "Kernel"
+
     def __repr__(self):
         return self.__str__()
 
@@ -93,6 +94,7 @@ class MALAKernel(Kernel):
 
         return theta_new, accept
 
+
 class GradientDescentKernel(Kernel):
     """
     This kernel implements deterministic gradient-based optimization to find the mode
@@ -106,7 +108,9 @@ class GradientDescentKernel(Kernel):
         self._step_count = 0
 
     def __str__(self):
-        return f"GradientDescent(step_size={self.step_size}, decay_rate={self.decay_rate})"
+        return (
+            f"GradientDescent(step_size={self.step_size}, decay_rate={self.decay_rate})"
+        )
 
     @partial(jit, static_argnums=(0,))
     def _compute_gradient(self, theta):
@@ -130,7 +134,7 @@ class GradientDescentKernel(Kernel):
         gradient = self._compute_gradient(theta_current)
 
         # Compute adaptive step size with decay
-        effective_step_size = self.step_size * (self.decay_rate ** self._step_count)
+        effective_step_size = self.step_size * (self.decay_rate**self._step_count)
 
         # Update theta using gradient ascent (since we're maximizing log_posterior)
         theta_new = theta_current + effective_step_size * gradient
@@ -176,7 +180,7 @@ class pCNKernel(Kernel):
         xi = random.normal(key_proposal, shape=theta_current.shape)
 
         # pCN scaling beta parameters
-        sqrt_beta = jnp.sqrt(1 - self.beta ** 2)
+        sqrt_beta = jnp.sqrt(1 - self.beta**2)
         theta_proposed = sqrt_beta * theta_current + self.beta * xi
 
         # Compute log-posterior for current and proposed thetas
@@ -187,13 +191,10 @@ class pCNKernel(Kernel):
         # (prior terms cancel out exactly)
         log_accept_ratio = log_post_proposed - log_post_current
 
-
         # Accept or reject the proposal
-        accept = random.uniform(key_accept) < jnp.exp(jnp.minimum(0.0, log_accept_ratio))
+        accept = random.uniform(key_accept) < jnp.exp(
+            jnp.minimum(0.0, log_accept_ratio)
+        )
         theta_new = jnp.where(accept, theta_proposed, theta_current)
 
         return theta_new, accept
-
-
-
-

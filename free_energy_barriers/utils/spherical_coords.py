@@ -1,5 +1,5 @@
 from typing import Tuple, Sequence
-from jax import jit,vmap, random
+from jax import jit, vmap, random
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from functools import partial
@@ -20,7 +20,8 @@ def _sample_spherical_coords_inner(
     phi = random.uniform(keys, shape=(n_samples,), minval=0.0, maxval=max_val)
     return r, phi
 
-@partial(jit, static_argnames=['n_dim', 'n_samples'])
+
+@partial(jit, static_argnames=["n_dim", "n_samples"])
 def sample_spherical_coords(
     key: random.PRNGKey,
     n_dim: int,
@@ -43,7 +44,7 @@ def sample_spherical_coords(
         - Array of radial coordinates
         - Sequence of arrays containing angular coordinates
     """
-     # Split the key for different random operations
+    # Split the key for different random operations
     keys = random.split(key, n_dim)
 
     # Sample radial coordinate uniformly
@@ -110,7 +111,7 @@ if __name__ == "__main__":
 
     # Convert to Cartesian coordinates
     x = spherical_to_cartesian(r, phis)
-    if n_dim <=3:
+    if n_dim <= 3:
         # Convert JAX arrays to NumPy for plotting
         x_np = jnp.asarray(x).copy()
 

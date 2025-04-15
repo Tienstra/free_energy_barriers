@@ -4,6 +4,7 @@ import jax.numpy as jnp
 from jax import random, grad, jit
 from functools import partial
 
+
 class Kernel:
     """Base class for kernels"""
 
@@ -16,6 +17,7 @@ class Kernel:
 
     def __str__(self):
         return "Kernel"
+
     def __repr__(self):
         return self.__str__()
 
@@ -80,7 +82,9 @@ class SGDKernel(Kernel):
                 self.velocity = jnp.zeros_like(theta_current)
 
             # Update velocity with momentum
-            self.velocity = self.momentum * self.velocity + self.step_size * noisy_gradient
+            self.velocity = (
+                self.momentum * self.velocity + self.step_size * noisy_gradient
+            )
 
             # Update theta using the velocity
             theta_new = theta_current + self.velocity
@@ -98,7 +102,9 @@ class AdamKernel(Kernel):
     def __str__(self):
         return f"Adam(step_size={self.step_size})"
 
-    def __init__(self, log_posterior, step_size=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8):
+    def __init__(
+        self, log_posterior, step_size=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8
+    ):
         super().__init__(log_posterior)
         self.step_size = step_size
         self.beta1 = beta1
@@ -128,15 +134,17 @@ class AdamKernel(Kernel):
         self.m = self.beta1 * self.m + (1 - self.beta1) * gradient
 
         # Update biased second raw moment estimate
-        self.v = self.beta2 * self.v + (1 - self.beta2) * (gradient ** 2)
+        self.v = self.beta2 * self.v + (1 - self.beta2) * (gradient**2)
 
         # Compute bias-corrected first moment estimate
-        m_hat = self.m / (1 - self.beta1 ** self.t)
+        m_hat = self.m / (1 - self.beta1**self.t)
 
         # Compute bias-corrected second raw moment estimate
-        v_hat = self.v / (1 - self.beta2 ** self.t)
+        v_hat = self.v / (1 - self.beta2**self.t)
 
         # Update parameters
-        theta_new = theta_current + self.step_size * m_hat / (jnp.sqrt(v_hat) + self.epsilon)
+        theta_new = theta_current + self.step_size * m_hat / (
+            jnp.sqrt(v_hat) + self.epsilon
+        )
 
         return theta_new, True

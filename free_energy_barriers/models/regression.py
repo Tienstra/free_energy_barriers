@@ -66,13 +66,13 @@ class StepRegression(Regression):
         T = self.T
         rho = self.rho
 
+        # Define the different cases
+        w_case1 = 4 * (T * r) ** 2  # for r in [0, t/2]
+        w_case2 = (T * t) ** 2 + T * (r - t / 2)  # for r in (t/2, t)
+        w_case3 = (T * t) ** 2 + (T * t / 2) + rho * (r - t)  # for r in [t, L)
+        w_case4 = (T * t) ** 2 + (T * t / 2) + rho * (L - t)  # for r in [L, ∞)
 
-        w_case1 = 4 * (T * r) ** 2
-        w_case2 = (T * t) ** 2 + T * (r - (t / 2))
-        w_case3 = (T * t) ** 2 + (T * (t / 2)) + rho * (r - t)
-        w_case4 = (T * t) ** 2 + (T * (t / 2)) + rho * (L - t)
-
-        # Use where to select appropriate cases
+        # Use nested where to select appropriate cases
         result = jnp.where(
             r <= t / 2,
             w_case1,
@@ -139,17 +139,17 @@ class LogisticRegression(Regression):
         return (probabilities >= threshold).astype(int)
 
 
-
-
-def log_posterior_fn(theta,X,y):
+def log_posterior_fn(theta, X, y):
     log_like = regression_model.log_likelihood(X, y)
-    log_prior =  -0.5 * jnp.sum(theta**2) / sigma_prior**2
+    log_prior = -0.5 * jnp.sum(theta**2) / sigma_prior**2
     return log_like + log_prior
+
 
 def log_lik(w_r):
     y = np.random.randn(1000)
 
-    return -0.5*(np.linalg.norm(w_r -y))**2
+    return -0.5 * (np.linalg.norm(w_r - y)) ** 2
+
 
 if __name__ == "__main__":
     rs = np.linspace(0, 0.6, 1000)
@@ -158,34 +158,30 @@ if __name__ == "__main__":
     w_rs = model.w(rs)
     log_prior = 1000 / 2 * np.linalg.norm(rs) ** 2
 
-
     log_lik_wr = list(map(log_lik, w_rs))
 
     log_post = log_lik_wr + log_prior
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 5))
 
-
     ax1.plot(rs, model.w(rs))
-    ax1.set_title('w(r)')
-    ax1.set_xlabel('r')
-    ax1.set_ylabel('w(r)')
+    ax1.set_title("w(r)")
+    ax1.set_xlabel("r")
+    ax1.set_ylabel("w(r)")
     ax1.grid(True)
 
     ax2.plot(rs, log_lik_wr)
-    ax2.set_title('log likelihood')
-    ax2.set_xlabel('r')
-    ax2.set_ylabel('G(r)')
-    #ax2.set_yscale('log')
+    ax2.set_title("log likelihood")
+    ax2.set_xlabel("r")
+    ax2.set_ylabel("G(r)")
+    # ax2.set_yscale('log')
     ax2.grid(True)
 
     ax3.plot(rs, log_lik_wr)
-    ax3.set_title('log post')
-    ax3.set_xlabel('r')
-    ax3.set_ylabel('G(r)')
+    ax3.set_title("log post")
+    ax3.set_xlabel("r")
+    ax3.set_ylabel("G(r)")
     # ax2.set_yscale('log')
     ax2.grid(True)
     plt.tight_layout()
     plt.show()
-
-

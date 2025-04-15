@@ -75,16 +75,19 @@ def generate_bounds(start=0, stop=1, length=0.33):
     pairs = [[arr[i], arr[i + 1]] for i in range(len(arr) - 1)]
     return pairs
 
+
 @jit
 def gaussian_log_prior(theta, sigma_prior):
     return -0.5 * jnp.sum(theta**2) / sigma_prior**2
 
-def create_log_posterior(regression_model, y, sigma_prior, sigma_noise=1.0, log_prior_fn=None ):
+
+def create_log_posterior(
+    regression_model, y, sigma_prior, sigma_noise=1.0, log_prior_fn=None
+):
     # Use provided prior or default to Gaussian
     if log_prior_fn is None:
         print(sigma_prior)
         log_prior_fn = partial(gaussian_log_prior, sigma_prior=sigma_prior)
-
 
     def log_posterior_fn(theta):
         log_like = regression_model.log_likelihood(theta, y)

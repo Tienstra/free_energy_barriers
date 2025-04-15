@@ -75,11 +75,9 @@ def generate_bounds(start=0, stop=1, length=0.33):
     pairs = [[arr[i], arr[i + 1]] for i in range(len(arr) - 1)]
     return pairs
 
-
-@partial(jax.jit, static_argnums=(1,))
+@partial(jit, static_argnums=(1,))
 def gaussian_log_prior(theta, sigma_prior=1.0):
     return -0.5 * jnp.sum(theta**2) / sigma_prior**2
-
 
 def create_log_posterior(regression_model, y, sigma_noise=1.0, log_prior_fn=None, sigma_prior=1.0):
     # Use provided prior or default to Gaussian
@@ -93,6 +91,28 @@ def create_log_posterior(regression_model, y, sigma_noise=1.0, log_prior_fn=None
         return log_like + log_prior
 
     return log_posterior_fn
+
+
+# Generate samples from logistic regression problem
+def generate_synthetic_data(n_samples=100, n_features=2, seed=42):
+    """Generate synthetic data for logistic regression"""
+    np.random.seed(seed)
+
+    # Generate random features
+    X = np.random.randn(n_samples, n_features)
+
+    # True coefficients
+    # true_beta = np.array([1.5, -2.0])
+    true_beta = np.zeros(n_features)
+
+    # Generate probabilities and labels
+    logits = X @ true_beta
+    probs = 1 / (1 + np.exp(-logits))
+    y = np.random.binomial(1, probs)
+
+    return X, y, true_beta
+
+
 # Example usage
 if __name__ == "__main__":
     # Set random seed for reproducibility

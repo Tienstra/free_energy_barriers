@@ -44,7 +44,7 @@ def run_mala_experiments(dim, n_steps=1000):
     y_jax = jnp.array(y)
 
     # Initialize model and sampler
-    model = LogisticRegression(N=n_samples, p=n_features)
+    model = StepRegression(N=n_features)
     sigma_prior = 1/jnp.sqrt(base_config.D)
     log_posterior_fn = create_log_posterior(
         model, y_jax, sigma_prior
@@ -52,7 +52,7 @@ def run_mala_experiments(dim, n_steps=1000):
     # Initialize kernel
     mala_kernel = MALAKernel(log_posterior_fn, epsilon=base_config.epsilon)
 
-    r_bounds = generate_bounds(start=0, stop=1, length=(1 / 3))
+    r_bounds = generate_bounds(start=0, stop=1, length=(1 / 9))
 
     print(r_bounds)
 
@@ -72,8 +72,8 @@ def run_mala_experiments(dim, n_steps=1000):
         mcmc = MCMC(
             kernel=mala_kernel,
             D=n_features,
-            n_steps=50000,
-            n_chains=5,
+            n_steps=base_config.n_steps,
+            n_chains=base_config.n_chains,
             initializer=base_config.init_method,
             init_args=config.args,
             seed=45,
@@ -81,6 +81,7 @@ def run_mala_experiments(dim, n_steps=1000):
 
         print(f"\nRunning experiment with radius={r_lowerupper}")
         # Run sampling
+        print(config.args)
         samples = mcmc.sample()
 
         results = {
@@ -102,4 +103,4 @@ def run_mala_experiments(dim, n_steps=1000):
 
 
 if __name__ == "__main__":
-    run_mala_experiments(dim=10, n_steps=100)
+    run_mala_experiments(dim=1000, n_steps=10000)

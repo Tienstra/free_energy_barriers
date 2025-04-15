@@ -54,7 +54,7 @@ class MALAKernel(Kernel):
         delta = x_prime - x - 0.5 * (self.epsilon**2) * grad_log_pi_x
         return -jnp.sum(delta**2) / (2 * self.epsilon**2)
 
-
+    @partial(jit, static_argnums=(0,))
     def step(self, rng_key, theta_current):
         """
         Single MALA step: Propose a new theta using Langevin dynamics and accept/reject it.

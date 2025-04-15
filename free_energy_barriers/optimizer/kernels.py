@@ -5,7 +5,7 @@ from jax import random, grad, jit
 from functools import partial
 
 class Kernel:
-    """Base class for MCMC kernels"""
+    """Base class for kernels"""
 
     def __init__(self, log_posterior):
         self.log_posterior = log_posterior

@@ -47,7 +47,7 @@ def run_mala_experiments(dim, n_steps=1000):
     model = LogisticRegression(N=n_samples, p=n_features)
     sigma_prior = 1/jnp.sqrt(base_config.D)
     log_posterior_fn = create_log_posterior(
-        model, X_jax, y_jax, sigma_prior
+        model, y_jax, sigma_prior
     )
     # Initialize kernel
     mala_kernel = MALAKernel(log_posterior_fn, epsilon=base_config.epsilon)

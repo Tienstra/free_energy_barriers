@@ -52,8 +52,8 @@ class MALAKernel(Kernel):
         - log_q: The log of the proposal density q(x' | x).
         """
         grad_log_pi_x = grad(self.log_posterior)(x)
-        delta = x_prime - x - 0.5 * (self.epsilon**2) * grad_log_pi_x
-        return -jnp.sum(delta**2) / (2 * self.epsilon**2)
+        delta = x_prime - x - (self.epsilon) * grad_log_pi_x
+        return -jnp.sum(delta**2) / (4 * self.epsilon)
 
     @partial(jit, static_argnums=(0,))
     def step(self, rng_key, theta_current):
@@ -68,7 +68,9 @@ class MALAKernel(Kernel):
         # Propose a new theta
         noise = random.normal(key1, shape=theta_current.shape)
         theta_proposed = (
-            theta_current + 0.5 * self.epsilon**2 * grad_log_post + self.epsilon * noise
+            theta_current
+            + self.epsilon * grad_log_post
+            + jnp.sqrt(2 * self.epsilon) * noise
         )
 
         # Compute log-posterior for current and proposed thetas

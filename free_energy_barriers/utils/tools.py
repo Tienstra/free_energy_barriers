@@ -78,7 +78,7 @@ def generate_bounds(start=0, stop=1, length=0.33):
 
 @jit
 def gaussian_log_prior(theta, sigma_prior):
-    return -0.5 * jnp.sum(theta**2) / sigma_prior**2
+    return -0.5 * jnp.sum(theta**2) / (sigma_prior**2)
 
 
 def create_log_posterior(
@@ -92,7 +92,7 @@ def create_log_posterior(
     def log_posterior_fn(theta):
         log_like = regression_model.log_likelihood(theta, y)
         log_prior = log_prior_fn(theta)
-        return log_like + log_prior
+        return (5000 * log_like) + log_prior
 
     return log_posterior_fn
 

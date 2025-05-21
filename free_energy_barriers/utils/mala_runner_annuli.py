@@ -1,6 +1,8 @@
 import sys
 import os
 
+import numpy as np
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
@@ -15,18 +17,18 @@ from utils.tools import create_log_posterior, generate_synthetic_data, generate_
 import jax.numpy as jnp
 
 
-def run_mala_experiments(dim, n_steps=1000):
+def run_mala_experiments(dim, n_chains=5, n_steps=1000):
 
     # Initialize experiment manager
     manager = ExperimentManager(project_root=".")
-
+    # 1 / 2N
     # Set up base configuration
     base_config = ExperimentConfig(
-        epsilon=(1 / dim),
+        epsilon=1e-6,
         kernel="MALAKernel",
         D=dim,
         n_steps=n_steps,
-        n_chains=2,
+        n_chains=n_chains,
         model_type="StepRegression",
         init_method="sample_annuli",
         args=[],
@@ -37,7 +39,8 @@ def run_mala_experiments(dim, n_steps=1000):
     # Generate synthetic data
     n_samples = base_config.D
     n_features = base_config.D
-    X, y, true_beta = generate_synthetic_data(n_samples, n_features)
+    X = np.ones(n_features)
+    y = np.random.randn(n_samples)
 
     # Convert to JAX arrays
     X_jax = jnp.array(X)
@@ -101,4 +104,4 @@ def run_mala_experiments(dim, n_steps=1000):
 
 
 if __name__ == "__main__":
-    run_mala_experiments(dim=1000, n_steps=10000)
+    run_mala_experiments(dim=1000, n_chains=10, n_steps=20000)

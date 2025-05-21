@@ -51,7 +51,7 @@ class DummyModel(Regression):
 
 
 class StepRegression(Regression):
-    def __init__(self, N, args=[0.5, 15, 2, 1]):
+    def __init__(self, N, args=[0.5, 5, 2, 1]):
         super().__init__()
         self.t = args[0]
         self.L = args[1]
@@ -68,9 +68,12 @@ class StepRegression(Regression):
 
         # Define the different cases
         w_case1 = 4 * (T * r) ** 2  # for r in [0, t/2]
-        w_case2 = (T * t) ** 2 + T * (r - t / 2)  # for r in (t/2, t)
-        w_case3 = (T * t) ** 2 + (T * t / 2) + rho * (r - t)  # for r in [t, L)
-        w_case4 = (T * t) ** 2 + (T * t / 2) + rho * (L - t)  # for r in [L, ∞)
+        # w_case2 = (T * t) ** 2 + T * (r - t / 2)  # for r in (t/2, t)
+        w_case2 = (T * t) ** 2
+        w_case3 = (T * t) ** 2
+        w_case4 = (T * t) ** 2
+        # w_case3 = (T * t) ** 2 + (T * t / 2) + rho * (r - t)  # for r in [t, L)
+        # w_case4 = (T * t) ** 2 + (T * t / 2) + rho * (L - t)  # for r in [L, ∞)
 
         # Use nested where to select appropriate cases
         result = jnp.where(
@@ -145,25 +148,39 @@ def log_posterior_fn(theta, X, y):
     return log_like + log_prior
 
 
-def log_lik(w_r):
-    y = np.random.randn(1000)
+def log_lik(w_r, y):
 
     return -0.5 * (np.linalg.norm(w_r - y)) ** 2
 
 
 if __name__ == "__main__":
-    rs = np.linspace(0, 0.6, 1000)
+    rs = np.linspace(0, 1, 1000)
 
     model = StepRegression(N=1000)
     w_rs = model.w(rs)
-    log_prior = 1000 / 2 * np.linalg.norm(rs) ** 2
+    log_prior = (-1000 / 2) * rs**2
 
-    log_lik_wr = list(map(log_lik, w_rs))
+    y = np.random.randn(1000)
+    log_lik_obs = partial(log_lik, y=y)
+    log_lik_wr = list(map(log_lik_obs, w_rs))
 
     log_post = log_lik_wr + log_prior
 
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 5))
+    # print(log_post)
+    # print(log_prior)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(12, 5))
+    #
+    # plt.plot(rs, log_post)
+    #
+    # plt.show()
 
+    print(np.gradient(log_post))
+
+    tick_locs = np.linspace(0, 1, 19)
+    for ax in [ax1, ax2, ax3, ax4]:
+        ax.set_xticks(tick_locs)
+        ax.set_xticklabels([f"{x:.2f}" for x in tick_locs], rotation=90)
+        ax.tick_params(axis="both", which="major", labelsize=9)
     ax1.plot(rs, model.w(rs))
     ax1.set_title("w(r)")
     ax1.set_xlabel("r")
@@ -174,14 +191,19 @@ if __name__ == "__main__":
     ax2.set_title("log likelihood")
     ax2.set_xlabel("r")
     ax2.set_ylabel("G(r)")
-    # ax2.set_yscale('log')
     ax2.grid(True)
 
-    ax3.plot(rs, log_lik_wr)
+    ax3.plot(rs, log_post)
     ax3.set_title("log post")
     ax3.set_xlabel("r")
     ax3.set_ylabel("G(r)")
-    # ax2.set_yscale('log')
-    ax2.grid(True)
+    ax3.grid(True)
+
+    ax4.plot(rs, np.gradient(log_post))
+    ax4.set_title("grad log post")
+    ax4.set_xlabel("r")
+    ax4.set_ylabel("grad")
+    ax4.grid(True)
+
     plt.tight_layout()
     plt.show()

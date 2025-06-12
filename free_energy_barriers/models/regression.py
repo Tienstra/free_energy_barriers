@@ -8,9 +8,11 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider, TextBox
 
 # sets plotting format
 import seaborn as sns
+
 
 custom_params = {"axes.spines.right": False, "axes.spines.top": False}
 sns.set_theme(style="ticks", palette="bright", rc=custom_params)
@@ -98,6 +100,7 @@ class LogisticRegression(Regression):
         self.N = N  # number of observations
         self.p = p  # number of parameters beta_j's
         self.beta = jnp.zeros(p)
+        self.X = jnp.array(np.random.randn(N, p))
 
     @partial(jit, static_argnums=(0,))
     def evaluate(self, t):
@@ -106,46 +109,20 @@ class LogisticRegression(Regression):
         """
         return 1 / (1 + jnp.exp(-t))
 
-    @partial(jit, static_argnums=(0,))
-    def log_likelihood(self, X, y):
+    # @partial(jit, static_argnums=(0,))
+    def log_likelihood(self, theta, y, sigma_noise=1.0):
 
-        n = X.shape[0]
 
-        return (
-            -1
-            / n
-            * jnp.sum(
-                y * jnp.log(self.evaluate(X @ self.beta))
-                + (1 - y) * jnp.log(1 - self.evaluate(X @ self.beta))
-            )
-        )
 
-    @partial(jit, static_argnums=(0,))
-    def gradient(self, X, y):
-        """
-        Compute the gradient of the loglik function:
-        """
-        n = X.shape[0]
+        logits = self.evaluate(self.X @ theta)
+        return -1* (jnp.sum(y * jnp.log(logits) + (1 - y) * jnp.log(1 - logits)) )
 
-        return 1 / n * jnp.dot(X.T, (self.evaluate(X @ self.beta) - y))
-
-    def predict(self, X, threshold=0.5):
+    def predict(self, theta, threshold=0.5):
         """
         Make binary predictions using the fitted model
-        Args:
-            X: Input features
-            threshold: Classification threshold (default: 0.5)
-        Returns:
-            Binary predictions (0 or 1)
         """
-        probabilities = self.evaluate(X.T @ self.beta)
+        probabilities = self.evaluate(self.X @ theta)
         return (probabilities >= threshold).astype(int)
-
-
-def log_posterior_fn(theta, X, y):
-    log_like = regression_model.log_likelihood(X, y)
-    log_prior = -0.5 * jnp.sum(theta**2) / sigma_prior**2
-    return log_like + log_prior
 
 
 def log_lik(w_r, y):
@@ -153,57 +130,138 @@ def log_lik(w_r, y):
     return -0.5 * (np.linalg.norm(w_r - y)) ** 2
 
 
-if __name__ == "__main__":
+def create_interactive_plot():
+    # Initialize parameters
     rs = np.linspace(0, 1, 1000)
-
-    model = StepRegression(N=1000)
+    D_init = 1000
+    N_init = 100
+    model = StepRegression(N=N_init)
     w_rs = model.w(rs)
-    log_prior = (-1000 / 2) * rs**2
-
-    y = np.random.randn(1000)
+    y = np.random.randn(N_init)
     log_lik_obs = partial(log_lik, y=y)
-    log_lik_wr = list(map(log_lik_obs, w_rs))
 
-    log_post = log_lik_wr + log_prior
+    # Create the figure and subplots
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
+    plt.subplots_adjust(bottom=0.45)  # Make room for sliders and text boxes
 
-    # print(log_post)
-    # print(log_prior)
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(12, 5))
-    #
-    # plt.plot(rs, log_post)
-    #
-    # plt.show()
+    # Initial values
 
-    print(np.gradient(log_post))
-
+    # Setup tick locations for all axes
     tick_locs = np.linspace(0, 1, 19)
     for ax in [ax1, ax2, ax3, ax4]:
         ax.set_xticks(tick_locs)
         ax.set_xticklabels([f"{x:.2f}" for x in tick_locs], rotation=90)
         ax.tick_params(axis="both", which="major", labelsize=9)
-    ax1.plot(rs, model.w(rs))
+        ax.grid(True)
+
+    # Create initial plots with initial D and N values
+    log_prior = (-D_init / 2) * rs**2
+    log_lik_base = list(map(log_lik_obs, w_rs))
+    log_lik_base = jnp.array(log_lik_base)
+
+    (line1,) = ax1.plot(rs, w_rs)
     ax1.set_title("w(r)")
     ax1.set_xlabel("r")
     ax1.set_ylabel("w(r)")
-    ax1.grid(True)
 
-    ax2.plot(rs, log_lik_wr)
+    log_lik_wr = N_init * log_lik_base
+    (line2,) = ax2.plot(rs, log_lik_wr)
     ax2.set_title("log likelihood")
     ax2.set_xlabel("r")
     ax2.set_ylabel("G(r)")
-    ax2.grid(True)
 
-    ax3.plot(rs, log_post)
+    log_post = log_lik_wr + log_prior
+    (line3,) = ax3.plot(rs, log_post)
     ax3.set_title("log post")
     ax3.set_xlabel("r")
-    ax3.set_ylabel("G(r)")
-    ax3.grid(True)
+    ax3.set_ylabel("log post")
 
-    ax4.plot(rs, np.gradient(log_post))
+    (line4,) = ax4.plot(rs, np.gradient(log_post))
     ax4.set_title("grad log post")
     ax4.set_xlabel("r")
     ax4.set_ylabel("grad")
-    ax4.grid(True)
 
-    plt.tight_layout()
+    # Create sliders
+    ax_slider_N = plt.axes([0.2, 0.25, 0.6, 0.03])
+    slider_N = Slider(ax_slider_N, "N", 10, 10000, valinit=N_init, valfmt="%d")
+
+    ax_slider_D = plt.axes([0.2, 0.2, 0.6, 0.03])
+    slider_D = Slider(ax_slider_D, "D", 10, 1000, valinit=D_init, valfmt="%d")
+
+    # Create text boxes
+    ax_textbox_N = plt.axes([0.2, 0.12, 0.1, 0.04])
+    textbox_N = TextBox(ax_textbox_N, "N: ", initial=str(N_init))
+
+    ax_textbox_D = plt.axes([0.4, 0.12, 0.1, 0.04])
+    textbox_D = TextBox(ax_textbox_D, "D: ", initial=str(D_init))
+
+    # Update function
+    def update(val):
+        N = int(slider_N.val)
+        D = int(slider_D.val)
+
+        # Update model with new D
+        model_new = StepRegression(D)
+        w_rs_new = model_new.w(rs)
+
+        # Update y data if D changed
+        if D != len(y):
+            y_new = np.random.randn(D)
+            log_lik_obs_new = partial(log_lik, y=y_new)
+        else:
+            log_lik_obs_new = log_lik_obs
+
+        # Recalculate all values
+        log_prior_new = (-D / 2) * rs**2
+        log_lik_base_new = list(map(log_lik_obs_new, w_rs_new))
+        log_lik_base_new = jnp.array(log_lik_base_new)
+        log_lik_wr_new = N * log_lik_base_new
+        log_post_new = log_lik_wr_new + log_prior_new
+        grad_log_post_new = np.gradient(log_post_new)
+
+        # Update plots
+        line1.set_ydata(w_rs_new)
+        line2.set_ydata(log_lik_wr_new)
+        line3.set_ydata(log_post_new)
+        line4.set_ydata(grad_log_post_new)
+
+        # Rescale y-axes
+        ax1.relim()
+        ax1.autoscale_view()
+        ax2.relim()
+        ax2.autoscale_view()
+        ax3.relim()
+        ax3.autoscale_view()
+        ax4.relim()
+        ax4.autoscale_view()
+
+        fig.canvas.draw_idle()
+
+    # Text box update functions
+    def update_N(text):
+        try:
+            N_val = int(float(text))
+            if 1 <= N_val <= 1000:
+                slider_N.set_val(N_val)
+        except:
+            pass
+
+    def update_D(text):
+        try:
+            D_val = int(float(text))
+            if 100 <= D_val <= 5000:
+                slider_D.set_val(D_val)
+        except:
+            pass
+
+    # Connect sliders and text boxes
+    slider_N.on_changed(update)
+    slider_D.on_changed(update)
+    textbox_N.on_submit(update_N)
+    textbox_D.on_submit(update_D)
+
     plt.show()
+
+
+if __name__ == "__main__":
+    create_interactive_plot()

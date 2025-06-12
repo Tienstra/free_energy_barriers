@@ -70,6 +70,7 @@ class ExperimentConfig:
 
     # Model
     model_type: str  # e.g., "StepRegression", "DummyModel",
+    # N: int #numeber of samples / scaling factor for likelihood
 
     # Storage parameters
     dtype: str = "float16"  # Options: 'float16', 'float32', 'float64'
@@ -158,6 +159,7 @@ class ExperimentManager:
 - Steps: {config.n_steps}
 - Epsilon: {config.epsilon}
 - D: {config.D}
+
 
 Detailed configuration can be found in `config.yaml`
 """

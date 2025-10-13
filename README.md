@@ -1,5 +1,5 @@
 # free_energy_barriers
-
+This project gives numerical results for the non-linear problem considered in [1]. It is also the code used to explore the existence of a free energy barrier in Bayesian logistic regression. Theoretical results are currently being explored. This is joint work with Prof. Sven Wang.  
 
 ## References
 

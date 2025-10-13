@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.spherical_coords import sample_spherical_coords, spherical_to_cartesian
 
 
-def sample_annuli(D, n_samples, args):
+def sample_annuli(D, n_samples, key, args):
     """
     Samples from the annuli with specified radius
 
@@ -35,7 +35,7 @@ def sample_annuli(D, n_samples, args):
         r_high = args[1]  # Upper bound for radial coordinate
 
     # Set random seed for reproducibility
-    key = random.PRNGKey(42)
+
 
     # Generate samples
     r, phis = sample_spherical_coords(key, D, n_samples, r_low, r_high)
@@ -82,17 +82,17 @@ def gaussian_log_prior(theta, sigma_prior):
 
 
 def create_log_posterior(
-    regression_model, y, sigma_prior, sigma_noise=1.0, log_prior_fn=None
+    regression_model, y, sigma_prior, N=1, sigma_noise=1.0, log_prior_fn=None
 ):
     # Use provided prior or default to Gaussian
     if log_prior_fn is None:
-        print(sigma_prior)
+        # print(sigma_prior)
         log_prior_fn = partial(gaussian_log_prior, sigma_prior=sigma_prior)
 
     def log_posterior_fn(theta):
         log_like = regression_model.log_likelihood(theta, y)
         log_prior = log_prior_fn(theta)
-        return (5000 * log_like) + log_prior
+        return (N * log_like) + log_prior
 
     return log_posterior_fn
 
@@ -106,7 +106,6 @@ def generate_synthetic_data(n_samples=100, n_features=2, seed=42):
     X = np.random.randn(n_samples, n_features)
 
     # True coefficients
-    # true_beta = np.array([1.5, -2.0])
     true_beta = np.zeros(n_features)
 
     # Generate probabilities and labels

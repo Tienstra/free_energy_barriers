@@ -113,9 +113,10 @@ class LogisticRegression(Regression):
     def log_likelihood(self, theta, y, sigma_noise=1.0):
 
 
-
-        logits = self.evaluate(self.X @ theta)
-        return -1* (jnp.sum(y * jnp.log(logits) + (1 - y) * jnp.log(1 - logits)) )
+        logits = self.X @ theta
+        probs = self.evaluate(logits)
+        return (jnp.sum(y * jnp.log(probs)
+                          + (1 - y) * jnp.log(1 - probs)))
 
     def predict(self, theta, threshold=0.5):
         """
